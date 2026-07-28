@@ -1,6 +1,6 @@
-## lets make a full Recon tool...
-
-#### this tool work with 7 scripts. incoude => js , nodejs , python , bash , bash_tools e.g
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?color=00FF00&center=true&vCenter=true&lines=Welcome...;RECON_TOOL;For+Bug+bounty+hunter" />
+</p>
 
 # 🔍 Full Recon Tool
 
@@ -146,6 +146,3 @@ options:
 > ⚡ *This is just the beginning — bigger things are coming.*
 
 <p align="center"> <img src="https://capsule-render.vercel.app/api?type=waving&color=00FF00&height=120&section=footer"/> </p>
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?color=00FF00&center=true&vCenter=true&lines=Welcome...;RECON_TOOL;For+Bug+bounty+hunter" />
-</p>
