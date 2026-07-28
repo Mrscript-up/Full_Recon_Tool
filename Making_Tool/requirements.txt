@@ -1,0 +1,12 @@
+colorama
+cryptography
+requests
+beautifulsoup4
+matplotlib
+pyjsparser
+
+
+# NOTE:
+# pip install -r requirements.txt
+# maybe you will face of pyjsparser error. for fix download => `pip install "setuptools<81"` then download => `pip install pyjsparser`.
+# and => `pip install -r requirements.txt`
