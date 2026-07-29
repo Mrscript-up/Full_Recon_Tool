@@ -8,7 +8,7 @@ from Tools.subdomain import run_subdomain_takover
 from Tools.JS_Tools.cleanjs import run_clean_js_tool
 from Tools.JS_Tools.taking_informationjs import run_taking_information_tool
 from Tools.JS_Tools.linkfinder import run_linkfinder
-
+from Tools.comment.comment import run_commnet_descovary_tool as comment
 
 class tool_start:
     def __init__(self):
@@ -46,27 +46,20 @@ if __name__ == "__main__":
     tool_start = tool_start()
     
     print("""
-      M                                                 M
-    M                                                  M
-  M                                                   M
-M                                                    M
-PPPPPPPPPPPPPPPPPPPPPPPP PPPPPPPPPPPPPPPPPPPPPPPPPPPM
-PPPPPPPPPPPPPPPPPPPPPP     PPPPPPPPPPPPPPPPPPPPPPPPP
-PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
-PP              PPPP      PPPPP                   PP
-PP     PP       PPPPPP      PPPPPP       PP       PP
-PP     PP       PPPPPP      PPPPPP       PP       PP           
-PP              PPPP       PPPPPP                 PP          
-PPPPPPPPPPPPPPPPPP           PPPPPPPPPPPPPPPPPPPPPPP         
-PPPPPPPPPPPPPPPPPPPPPP    PPPPPPPPPPPPPPPPPPPPPPPPPP        
-PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP       
-PPPPPPPP                                    PPPPPPPP      
-PPPPPP                                        PPPPPP     M
-PPPP                                            PPPP    M
-PPPP                 MRSCRIPT                   PPPP   M
-PPPP            Private Recon Tool              PPPP  M
-PPPP                                            PPPP M
-PPPP                                            PPPPM
+╔══════════════════════════════════════════════════╗
+║                                                  ║
+║                                                  ║
+║            ███╗   ███╗██████╗ ███████╗           ║
+║            ████╗ ████║██╔══██╗██╔════╝           ║
+║            ██╔████╔██║██████╔╝███████╗           ║
+║            ██║╚██╔╝██║██╔══██╗╚════██║           ║
+║            ██║ ╚═╝ ██║██║  ██║███████║           ║
+║            ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝           ║
+║                                                  ║
+║                  M R S C R I P T                 ║
+║               Private Recon Tool                 ║
+║                                                  ║
+╚══════════════════════════════════════════════════╝
 """)
     print('what do you want to do?\n=> ')
     
@@ -84,7 +77,6 @@ PPPP                                            PPPPM
     args.add_argument('-sfjs', '--secrets_finder', help='find_secrets_in_js_files',action="store_true")   
     pa = args.parse_args()
 
-# اگر هیچ آپشنی انتخاب نشده
     if not any(vars(pa).values()):
         print('select a tool to run')
         args.print_help()
@@ -100,7 +92,7 @@ PPPP                                            PPPPM
         run_tool(run_spidering_attack_tool, pa, 'spidering')
 
     if pa.comment:
-        pass
+        run_tool(comment, pa, 'comment')
 
     if pa.clean_js:
         run_tool(run_clean_js_tool, pa, 'clean_js')
