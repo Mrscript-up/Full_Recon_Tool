@@ -9,7 +9,10 @@ from Tools.JS_Tools.cleanjs import run_clean_js_tool
 from Tools.JS_Tools.taking_informationjs import run_taking_information_tool
 from Tools.JS_Tools.linkfinder import run_linkfinder
 from Tools.comment.comment import run_commnet_descovary_tool as comment
+from Tools.JS_Tools.vulnerability import run_vulnerability_tool
+from Tools.JS_Tools.secrets import run_secrets_tool
 from Automation_All.Automation import main as automation_tool
+
 
 class tool_start:
     def __init__(self):
@@ -109,9 +112,9 @@ if __name__ == "__main__":
         run_tool(automation_tool, pa, 'automation')
 
     if pa.vulnerability_scan:
-        pass
+        run_tool(run_vulnerability_tool, pa ,'vulnerability_scan')
 
     if pa.secrets_finder:
-        pass
+        run_tool(run_secrets_tool, pa, 'secrets_finder')
 
         
