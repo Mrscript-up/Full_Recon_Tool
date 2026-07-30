@@ -419,6 +419,68 @@ def run_taking_information_tool(args=None):
                     (r'/\*\s*(?:TODO|FIXME|HACK|XXX|BUG|NOTE)', 'medium'),
                     (r'__DEBUG__|__DEV__|development|staging', 'low'),
                 ],
+
+                # javascript
+                # Email Addresses
+                'emails': [
+                    (r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', 'medium'),
+                ],
+
+                # IP Addresses
+                'ip_addresses': [
+                    (r'\b(?:\d{1,3}\.){3}\d{1,3}\b', 'medium'),
+                    (r'\b(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}\b', 'low'),  # IPv6
+                ],
+
+                # Database Connection Strings
+                'db_connections': [
+                    (r'(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis)://[^\s"\'<>]+', 'critical'),
+                    (r'(?:DB_HOST|DATABASE_URL|CONNECTION_STRING)\s*[:=]\s*["\']([^"\']+)["\']', 'critical'),
+                ],
+
+                # Environment Variables
+                'env_vars': [
+                    (r'process\.env\.([A-Z_][A-Z0-9_]*)', 'high'),
+                    (r'import\.meta\.env\.([A-Z_][A-Z0-9_]*)', 'high'),
+                    (r'REACT_APP_[A-Z0-9_]+', 'medium'),
+                    (r'NEXT_PUBLIC_[A-Z0-9_]+', 'medium'),
+                ],
+
+                # GraphQL Operations
+                'graphql': [
+                    (r'(?:query|mutation|subscription)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[\({]', 'high'),
+                    (r'gql`([^`]+)`', 'high'),
+                    (r'graphql\(["\']([^"\']+)["\']', 'medium'),
+                ],
+
+                # Third-party Service Keys (extending your 'secrets' list)
+                'service_keys': [
+                    (r'SG\.[a-zA-Z0-9_\-]{22}\.[a-zA-Z0-9_\-]{43}', 'critical'),        # SendGrid
+                    (r'AC[a-z0-9]{32}', 'critical'),                                     # Twilio Account SID
+                    (r'SK[a-z0-9]{32}', 'critical'),                                     # Twilio API Key
+                    (r'https://hooks\.slack\.com/services/[a-zA-Z0-9/]+', 'critical'),   # Slack Webhook
+                    (r'AIza[0-9A-Za-z_\-]{35}', 'critical'),                             # Google API Key
+                    (r'ya29\.[0-9A-Za-z_\-]+', 'high'),                                  # Google OAuth token
+                    (r'EAACEdEose0cBA[0-9A-Za-z]+', 'critical'),                         # Facebook Access Token
+                    (r'npm_[a-zA-Z0-9]{36}', 'critical'),                                # npm token
+                ],
+
+                # Base64-looking Blobs (potential encoded secrets)
+                'base64_blobs': [
+                    (r'["\']([A-Za-z0-9+/]{40,}={0,2})["\']', 'low'),
+                ],
+
+                # CORS / Security Config
+                'cors_config': [
+                    (r'Access-Control-Allow-Origin["\']?\s*[:=]\s*["\']([^"\']+)["\']', 'medium'),
+                    (r'cors\s*\(\s*\{([^}]+)\}', 'medium'),
+                ],
+
+                # Version / Deprecated Markers
+                'version_info': [
+                    (r'@version\s+([0-9]+\.[0-9]+\.[0-9]+)', 'low'),
+                    (r'(?:deprecated|@deprecated)[^\n]*', 'low'),
+                ],
             }
             
             # Pre-compile all patterns
