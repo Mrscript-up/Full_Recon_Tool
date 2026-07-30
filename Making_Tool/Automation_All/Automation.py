@@ -43,7 +43,7 @@ def main():
             print(f"{Fore.RED}[!] No target provided. Exiting.{Style.RESET_ALL}")
             sys.exit(1)
 
-        print(f"\n{Fore.MAGENTA}{Style.BRIGHT}[*] Starting full automated recon on: {target}{Style.RESET_ALL}\n")
+        print(f"\n{Fore.MAGENTA}{Style.BRIGHT}[-] Starting full automated recon on: {target}{Style.RESET_ALL}\n")
     
         
     # --- Tools with a confirmed keyword-argument interface -----------------

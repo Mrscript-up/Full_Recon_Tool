@@ -9,6 +9,7 @@ from Tools.JS_Tools.cleanjs import run_clean_js_tool
 from Tools.JS_Tools.taking_informationjs import run_taking_information_tool
 from Tools.JS_Tools.linkfinder import run_linkfinder
 from Tools.comment.comment import run_commnet_descovary_tool as comment
+from Automation_All.Automation import main as automation_tool
 
 class tool_start:
     def __init__(self):
@@ -61,7 +62,7 @@ if __name__ == "__main__":
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝
 """)
-    print('what do you want to do?\n=> ')
+    print('[-] * WE SEE YOU * [-]')
     
     args = argparse.ArgumentParser(description='MRSCRIPT - Private Recon Tool')
     args.add_argument('-s', '--subdomain', help='subdomain_discovery_tool',action="store_true")
@@ -74,11 +75,12 @@ if __name__ == "__main__":
     args.add_argument('-tfjs', '--taking_information_js', help='extracking_info_js_files',action="store_true")
     args.add_argument('-lfjs', '--link_finder', help='find_link_in_js_files',action="store_true")
     args.add_argument('-vsjs', '--vulnerability_scan', help='find_(simple)_vul_in_js',action="store_true")
-    args.add_argument('-sfjs', '--secrets_finder', help='find_secrets_in_js_files',action="store_true")   
+    args.add_argument('-sfjs', '--secrets_finder', help='find_secrets_in_js_files',action="store_true")
+    args.add_argument('-automation', '--automation', help='automation all of them', action='store_true')   
     pa = args.parse_args()
 
     if not any(vars(pa).values()):
-        print('select a tool to run')
+        print('[-] select a tool to run')
         args.print_help()
         sys.exit(1)
 
@@ -102,6 +104,9 @@ if __name__ == "__main__":
 
     if pa.link_finder:
         run_tool(run_linkfinder, pa, 'link_finder')
+
+    if pa.automation:
+        run_tool(automation_tool, pa, 'automation')
 
     if pa.vulnerability_scan:
         pass

@@ -1,7 +1,7 @@
 import subprocess
 
 def run_Tec_tool():
-    print('run tec tool descovary...')
+    print('[-] run tec tool descovary...')
     
     def run():
 
@@ -21,7 +21,7 @@ def run_Tec_tool():
         # 1. Check if a target was provided
         if [ -z "$1" ]; then
             echo -e "${RED}[!] Error: No target URL provided.${NC}"
-            echo -e "${YELLOW}Usage: $0 <http://target-url.com>${NC}"
+            echo -e "${YELLOW}[-] Usage: $0 <http://target-url.com>${NC}"
             exit 1
         fi
 
