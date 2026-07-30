@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 
 def run_clean_js_tool():
-    print('run clean js')
+    print('[-] run clean js')
 
     script = """
     const fs = require('fs');
@@ -45,9 +45,9 @@ def run_clean_js_tool():
         try {
             // dont give this tool brainfuck or jsfuck files.
             execSync(`npx prettier --parser babel "${inputPath}" > "${outputPath}"`, { stdio: 'inherit' });
-            console.log(`[~] save (: ${outputFileName}\n`);
+            console.log(`[+] save (: ${outputFileName}\n`);
         } catch (err) {
-            console.error(`[*] error ${file} (anknow syntask for Prettier ): `);
+            console.error(`[!] error ${file} (anknow syntask for Prettier ): `);
         }
     });
     """
