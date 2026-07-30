@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 def run_spidering_attack_tool(target_domain=None):
-    print("run_spidering_attack_tool")
+    print("[-] run_spidering_attack_tool")
     
     def run():
         # Try importing colorama for colored output, fallback to clean text if not installed

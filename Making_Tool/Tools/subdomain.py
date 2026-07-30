@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 def run_subdomain_takover():
-    print('starting subdomain tool...')
+    print('[-] starting subdomain tool...')
     def run():
 
         REQUIRED_TOOLS = ["subfinder", "dnsx", "naabu", "httpx"]
@@ -22,7 +22,7 @@ def run_subdomain_takover():
             
             mode = "ab" if append else "wb"
 
-            print(f"running {' '.join(cmd1)} | {' '.join(cmd2)} > {output_path}")
+            print(f"[*] running {' '.join(cmd1)} | {' '.join(cmd2)} > {output_path}")
 
             p1 = subprocess.Popen(cmd1, stdout=subprocess.PIPE)
             p2 = subprocess.Popen(cmd2, stdin=p1.stdout, stdout=subprocess.PIPE)

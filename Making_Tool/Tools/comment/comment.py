@@ -18,7 +18,7 @@ def run_commnet_descovary_tool(args=None):
       2. run_commnet_descovary_tool(self, "some cmd")   -> run one command, then loop
       3. run_commnet_descovary_tool(self, parsed_ns)    -> run once and return (no loop)
     """
-    print('run_comment_descovary...')
+    print('[-] run_comment_descovary...')
 
     # ---------------------------------------------------------------------------
     # Language configuration
@@ -569,7 +569,7 @@ def run_commnet_descovary_tool(args=None):
             return
 
         if not os.path.exists(parsed_args.path):
-            print(f"Error: path not found: {parsed_args.path}", file=sys.stderr)
+            print(f"[!] Error: path not found: {parsed_args.path}", file=sys.stderr)
             return
 
         extensions = None
@@ -592,11 +592,11 @@ def run_commnet_descovary_tool(args=None):
         for fp in find_files(parsed_args.path, extensions, exclude_dirs):
             files_scanned += 1
             if parsed_args.verbose:
-                print(f"    scanning {fp}", file=sys.stderr)
+                print(f"[*]    scanning {fp}", file=sys.stderr)
             data, err = process_file(fp, parsed_args.min_length)
             if err:
                 if parsed_args.verbose and err != 'unknown language':
-                    print(f"    [skip] {fp}: {err}", file=sys.stderr)
+                    print(f"[*]    [skip] {fp}: {err}", file=sys.stderr)
                 continue
             if data is None:
                 continue
@@ -661,7 +661,7 @@ def run_commnet_descovary_tool(args=None):
                 print(f"[OK] Output written: {p}", file=sys.stderr)
             if by_language:
                 print("", file=sys.stderr)
-                print("By language:", file=sys.stderr)
+                print("[-] By language:", file=sys.stderr)
                 for lang, s in sorted(by_language.items(),
                                        key=lambda x: -x[1]['comments']):
                     print(f"    {lang:<45} {s['files']:>4} files / "
@@ -673,32 +673,32 @@ def run_commnet_descovary_tool(args=None):
 
     def run_interactive_loop(initial_input=None):
         parser = create_parser()
-        print("\nComment Extractor interactive mode")
-        print("Type 'help' for usage or 'exit' to quit.")
-        print("Examples:")
-        print("  ./src -f md -o report.md")
-        print("  ./app.py --min-length 5 --stats")
+        print("\n[-] Comment Extractor interactive mode")
+        print("[-] Type 'help' for usage or 'exit' to quit.")
+        print("[-] Examples:")
+        print("[-]  ./src -f md -o report.md")
+        print("[-]  ./app.py --min-length 5 --stats")
 
         while True:
             if initial_input is not None:
                 command = str(initial_input).strip()
                 initial_input = None
-                print(f"comment-extractor> {command}")
+                print(f"[-] comment-extractor> {command}")
             else:
                 try:
                     command = input("comment-extractor> ").strip()
                 except KeyboardInterrupt:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
                 except EOFError:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
 
             if not command:
                 continue
 
             if command.lower() in {'exit', 'quit'}:
-                print("Exiting Comment Extractor.")
+                print("[-] Exiting Comment Extractor.")
                 break
 
             if command.lower() in {'help', '?'}:
@@ -708,7 +708,7 @@ def run_commnet_descovary_tool(args=None):
             try:
                 tokens = shlex.split(command)
             except ValueError as exc:
-                print(f"[ERROR] Invalid input: {exc}")
+                print(f"[!] Error Invalid input: {exc}")
                 continue
 
             try:
