@@ -67,14 +67,14 @@ def run_Tec_tool():
             return
 
         try:
-            # اجرای اسکریپت بش
+            
             result = subprocess.run(
                 ["bash", "-c", bash_script, "bash", target],
                 capture_output=True,
                 text=True
             )
         except FileNotFoundError:
-            # هندل کردن ارور نبود bash در ویندوز
+            
             print("\n" + "="*50)
             print("[!] CRITICAL ERROR: 'bash' command not found!")
             print("[!] It seems you are on Windows and Bash (WSL/Git Bash) is not installed or not in PATH.")
@@ -86,17 +86,17 @@ def run_Tec_tool():
             print(f"\n[!] An unexpected error occurred while executing bash: {e}\n")
             return
 
-        # چاپ خروجی در ترمینال
+    
         if result.stdout:
             print(result.stdout)
         if result.stderr:
-            # جدا کردن پیام‌های خطای خود ابزارها
+        
             print("[*] Stderr:\n", result.stderr)
 
-        # پاکسازی کدهای رنگی (ANSI)
+        
         clean_output = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', result.stdout or "")
 
-        # امن‌سازی برای HTML
+        
         safe_target = html.escape(target)
         safe_output = html.escape(clean_output)
 
@@ -121,7 +121,7 @@ def run_Tec_tool():
 
         os.makedirs("MRSCRIPT_Reports", exist_ok=True)
 
-        # نام‌گذاری امن فایل
+       
         safe_name = re.sub(r'^https?://', '', target)
         safe_name = re.sub(r'[\\/:*?"<>|]+', '_', safe_name).strip('_') or "target"
 
