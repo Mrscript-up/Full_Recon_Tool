@@ -327,7 +327,7 @@ def run_linkfinder(args=None):
                 response.raise_for_status()
                 return response.text
             except requests.RequestException as e:
-                print(f"[-] Error fetching {url}: {e}", file=sys.stderr)
+                print(f"[!] Error fetching {url}: {e}", file=sys.stderr)
                 return None
 
         def read_file(self, filepath: str) -> Optional[str]:
@@ -336,7 +336,7 @@ def run_linkfinder(args=None):
                 with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                     return f.read()
             except IOError as e:
-                print(f"[-] Error reading file {filepath}: {e}", file=sys.stderr)
+                print(f"[!] Error reading file {filepath}: {e}", file=sys.stderr)
                 return None
 
         def find_js_files(self, html_content: str, base_url: str) -> Set[str]:
@@ -462,7 +462,7 @@ def run_linkfinder(args=None):
                     try:
                         future.result()
                     except Exception as e:
-                        print(f"[-] Error analyzing {url}: {e}", file=sys.stderr)
+                        print(f"[!] Error analyzing {url}: {e}", file=sys.stderr)
 
         def deduplicate(self) -> List[FoundEndpoint]:
             """Remove duplicate endpoints."""
@@ -738,7 +738,7 @@ def run_linkfinder(args=None):
                 verify_ssl=not parsed_args.no_verify_ssl
             )
         except Exception as e:
-            print(f"[-] Error initializing LinkFinder: {e}", file=sys.stderr)
+            print(f"[!] Error initializing LinkFinder: {e}", file=sys.stderr)
             sys.exit(1)
 
         print("[*] LinkFinder-Python v1.0.0")
@@ -783,7 +783,7 @@ def run_linkfinder(args=None):
                     f.write(output)
                 print(f"\n[+] Results saved to {parsed_args.output}")
             except IOError as e:
-                print(f"[-] Error writing to file: {e}", file=sys.stderr)
+                print(f"[!] Error writing to file: {e}", file=sys.stderr)
                 sys.exit(1)
         else:
             print(OutputFormatter.to_cli(endpoints, parsed_args.show_context))
@@ -811,33 +811,33 @@ def run_linkfinder(args=None):
 
     def run_interactive_loop(initial_input=None):
         parser = create_parser()
-        print("\nLinkFinder interactive mode")
-        print("Type 'help' for usage or 'exit' to quit.")
-        print("Examples:")
-        print("  https://example.com")
-        print("  ./app.js")
-        print("  -u https://example.com -d 2")
+        print("\n[-] LinkFinder interactive mode")
+        print("[-] Type 'help' for usage or 'exit' to quit.")
+        print("[-] Examples:")
+        print("[-]  https://example.com")
+        print("[-]  ./app.js")
+        print("[-]  -u https://example.com -d 2")
 
         while True:
             if initial_input is not None:
                 command = str(initial_input).strip()
                 initial_input = None
-                print(f"linkfinder> {command}")
+                print(f"[-] linkfinder> {command}")
             else:
                 try:
                     command = input("linkfinder> ").strip()
                 except KeyboardInterrupt:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
                 except EOFError:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
 
             if not command:
                 continue
 
             if command.lower() in {'exit', 'quit'}:
-                print("Exiting LinkFinder.")
+                print("[!] Exiting LinkFinder.")
                 break
 
             if command.lower() in {'help', '?'}:
@@ -847,7 +847,7 @@ def run_linkfinder(args=None):
             try:
                 tokens = shlex.split(command)
             except ValueError as exc:
-                print(f"[ERROR] Invalid input: {exc}")
+                print(f"[!][ERROR] Invalid input: {exc}")
                 continue
 
             try:

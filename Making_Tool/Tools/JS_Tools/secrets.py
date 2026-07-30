@@ -37,7 +37,7 @@ except Exception:
     _HAS_PARSER = False
 
 
-print('run secrets finder')
+print('[-] run secrets finder')
 
 #!/usr/bin/env python3
 """
@@ -1093,7 +1093,7 @@ class ConsoleReporter(BaseReporter):
             self._print_findings(result)
         else:
             print()
-            print(self._color("✓ No secrets found!", "\033[92m"))
+            print(self._color("[!] No secrets found!", "\033[92m"))
         
         if result.errors and self.verbose:
             print()
@@ -1105,19 +1105,19 @@ class ConsoleReporter(BaseReporter):
         print(self._color("═" * 70, self.DIM))
         print(self._color("  SecretsFinder Pro - Scan Results", self.BOLD))
         print(self._color("═" * 70, self.DIM))
-        print(f"  Path:          {result.scan_path}")
-        print(f"  Started:       {result.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[*]  Path:          {result.scan_path}")
+        print(f"[*]  Started:       {result.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         if result.end_time:
             duration = (result.end_time - result.start_time).total_seconds()
-            print(f"  Duration:      {duration:.2f}s")
+            print(f"[*]  Duration:      {duration:.2f}s")
     
     def _print_summary(self, result: ScanResult):
         """Print scan summary."""
         print()
-        print(self._color("  Summary", self.BOLD))
+        print(self._color("[*]  Summary", self.BOLD))
         print(self._color("  " + "─" * 30, self.DIM))
-        print(f"  Files Scanned:  {result.files_scanned}")
-        print(f"  Files Skipped:  {result.files_skipped}")
+        print(f"[*]  Files Scanned:  {result.files_scanned}")
+        print(f"[*]  Files Skipped:  {result.files_skipped}")
         
         # Color-code total matches
         total = result.total_matches
@@ -1127,12 +1127,12 @@ class ConsoleReporter(BaseReporter):
             total_str = self._color(str(total), "\033[93m")
         else:
             total_str = self._color(str(total), "\033[91m")
-        print(f"  Secrets Found:  {total_str}")
+        print(f"[**]  Secrets Found:  {total_str}")
         
         # By severity
         if result.matches_by_severity:
             print()
-            print(f"  By Severity:")
+            print(f"[*]  By Severity:")
             for sev in [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]:
                 count = result.matches_by_severity.get(sev.value, 0)
                 if count > 0:
@@ -1141,7 +1141,7 @@ class ConsoleReporter(BaseReporter):
         # By category
         if result.matches_by_category and self.verbose:
             print()
-            print(f"  By Category:")
+            print(f"[*]  By Category:")
             for cat, count in sorted(result.matches_by_category.items(), key=lambda x: -x[1]):
                 print(f"    {cat:20} {count}")
     
@@ -1160,16 +1160,16 @@ class ConsoleReporter(BaseReporter):
             if match.file_path != current_file:
                 current_file = match.file_path
                 print()
-                print(self._color(f"  📄 {current_file}", self.BOLD))
+                print(self._color(f"  [*] {current_file}", self.BOLD))
                 print(self._color("  " + "─" * 60, self.DIM))
             
             # Severity badge
             sev_badge = self._severity_text(match.severity)
             
             # Line info
-            print(f"    {sev_badge} Line {match.line_number} | {match.pattern_name}")
-            print(f"         {self._color(match.line_content.strip()[:100], self.DIM)}")
-            print(f"         Matched: {match.redacted_value} (entropy: {match.entropy:.2f}, confidence: {match.confidence:.0%})")
+            print(f"[*]    {sev_badge} Line {match.line_number} | {match.pattern_name}")
+            print(f"[*]        {self._color(match.line_content.strip()[:100], self.DIM)}")
+            print(f"[*]         Matched: {match.redacted_value} (entropy: {match.entropy:.2f}, confidence: {match.confidence:.0%})")
             
             # Context
             if self.show_context:
@@ -1182,7 +1182,7 @@ class ConsoleReporter(BaseReporter):
     
     def _print_errors(self, result: ScanResult):
         """Print any errors encountered."""
-        print(self._color("  Errors", self.BOLD))
+        print(self._color("[!]  Errors", self.BOLD))
         for error in result.errors:
             print(f"    {self._color(error, '\033[91m')}")
 
@@ -1480,7 +1480,7 @@ def parse_severity_filter(severity_str: str) -> Optional[Set[Severity]]:
         try:
             severities.add(Severity(s))
         except ValueError:
-            print(f"Warning: Unknown severity level '{s}'", file=sys.stderr)
+            print(f"[!] Warning: Unknown severity level '{s}'", file=sys.stderr)
     return severities if severities else None
 
 
@@ -1495,7 +1495,7 @@ def parse_category_filter(category_str: str) -> Optional[Set[SecretCategory]]:
         try:
             categories.add(SecretCategory(c))
         except ValueError:
-            print(f"Warning: Unknown category '{c}'", file=sys.stderr)
+            print(f"[!] Warning: Unknown category '{c}'", file=sys.stderr)
     return categories if categories else None
 
 
@@ -1580,20 +1580,20 @@ def run_from_args(args):
         return 0
 
     if args.list_severities:
-        print("\nSeverity Levels:")
+        print("\n[-] Severity Levels:")
         for sev in Severity:
             print(f"  • {sev.value.upper():12} - {sev.name}")
         return 0
 
     if args.list_categories:
-        print("\nSecret Categories:")
+        print("\n[-] Secret Categories:")
         for cat in SecretCategory:
             print(f"  • {cat.value:20} - {cat.name.replace('_', ' ')}")
         return 0
 
     scan_path = Path(args.path)
     if not scan_path.exists():
-        print(f"Error: Path does not exist: {args.path}", file=sys.stderr)
+        print(f"[-] Error: Path does not exist: {args.path}", file=sys.stderr)
         return 1
 
     skip_patterns = list(args.skip)
@@ -1641,33 +1641,33 @@ def run_from_args(args):
 
 def run_interactive_loop(initial_input=None):
     parser = create_parser()
-    print("\nSecretsFinder interactive mode")
-    print("Type 'help' for usage or 'exit' to quit.")
-    print("Examples:")
-    print("  .")
-    print("  ./src")
-    print("  . --severity critical,high")
+    print("\n[-] SecretsFinder interactive mode")
+    print("[-] Type 'help' for usage or 'exit' to quit.")
+    print("[-] Examples:")
+    print("[-]  .")
+    print("[-]  ./src")
+    print("[-]  . --severity critical,high")
 
     while True:
         if initial_input is not None:
             command = str(initial_input).strip()
             initial_input = None
-            print(f"secrets> {command}")
+            print(f"[-] secrets> {command}")
         else:
             try:
                 command = input("secrets> ").strip()
             except KeyboardInterrupt:
-                print("\nGoodbye!")
+                print("\n[!] Goodbye!")
                 break
             except EOFError:
-                print("\nGoodbye!")
+                print("\n[!] Goodbye!")
                 break
 
         if not command:
             continue
 
         if command.lower() in {"exit", "quit"}:
-            print("Exiting SecretsFinder.")
+            print("[!] Exiting SecretsFinder.")
             break
 
         if command.lower() in {"help", "?"}:
@@ -1677,7 +1677,7 @@ def run_interactive_loop(initial_input=None):
         try:
             tokens = shlex.split(command)
         except ValueError as exc:
-            print(f"[ERROR] Invalid input: {exc}")
+            print(f"[!][ERROR] Invalid input: {exc}")
             continue
 
         try:

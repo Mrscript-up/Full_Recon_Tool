@@ -139,7 +139,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def run_taking_information_tool(args=None):
-    print('run taking inforamtion')
+    print('[-] run taking inforamtion')
 
     if isinstance(args, str):
         args = create_parser().parse_args([args])
@@ -690,10 +690,10 @@ def run_taking_information_tool(args=None):
             # Print header
             total_items = sum(len(items) for items in aggregated.values())
             print(f"\n{self._color('cyan', '='*70)}")
-            print(f"{self._color('cyan', '  JAVASCRIPT EXTRACTION RESULTS')}")
+            print(f"{self._color('cyan', ' [-] JAVASCRIPT EXTRACTION RESULTS')}")
             print(f"{self._color('cyan', '='*70)}")
-            print(f"  Files analyzed: {self._color('white', str(len(results)))}")
-            print(f"  Total findings: {self._color('white', str(total_items))}")
+            print(f"[-]  Files analyzed: {self._color('white', str(len(results)))}")
+            print(f"[-]  Total findings: {self._color('white', str(total_items))}")
             print(f"{self._color('cyan', '='*70)}\n")
             
             # Print each category
@@ -729,9 +729,9 @@ def run_taking_information_tool(args=None):
                     
                     print(f"  {self._color(conf_color, f'[{item.confidence.upper():8}]')} {item.value[:100]}")
                     if verbose:
-                        print(f"           {self._color('white', f'Source: {source_short}:{item.line_number}')}")
+                        print(f"           {self._color('white', f'[-] Source: {source_short}:{item.line_number}')}")
                         if item.context and len(item.context) < 200:
-                            print(f"           {self._color('white', f'Context: {item.context[:100]}...')}")
+                            print(f"           {self._color('white', f'[-] Context: {item.context[:100]}...')}")
                 
                 print()
         
@@ -858,7 +858,7 @@ def run_taking_information_tool(args=None):
             'custom_patterns': 'User-defined patterns',
         }
         
-        print("\nAvailable extraction categories:\n")
+        print("\n[-] Available extraction categories:\n")
         for name, desc in categories.items():
             print(f"  {name:20} - {desc}")
         print()
@@ -952,7 +952,7 @@ def run_taking_information_tool(args=None):
         # Output
         if args.stats_only:
             print(f"\n{extractor._color('cyan', '='*50)}")
-            print(f"{extractor._color('cyan', '  EXTRACTION STATISTICS')}")
+            print(f"{extractor._color('cyan', '  [-] EXTRACTION STATISTICS')}")
             print(f"{extractor._color('cyan', '='*50)}")
             
             total_stats = defaultdict(int)
@@ -997,33 +997,33 @@ def run_taking_information_tool(args=None):
             }
             return f"{colors.get(color, '')}{text}\033[0m"
 
-        print("\nJS extractor interactive mode")
-        print("Type 'help' for usage or 'exit' to quit.")
-        print("Examples:")
-        print("  file.js")
-        print("  ./src -r")
-        print("  -c secrets,api_endpoints file.js")
+        print("\n[-] JS extractor interactive mode")
+        print("[-] Type 'help' for usage or 'exit' to quit.")
+        print("[-] Examples:")
+        print("[-]  file.js")
+        print("[-]  ./src -r")
+        print("[-]  -c secrets,api_endpoints file.js")
 
         while True:
             if initial_input is not None:
-                print(f"js-tool> {initial_input}")
+                print(f"[-] js-tool> {initial_input}")
                 command = str(initial_input).strip()
                 initial_input = None
             else:
                 try:
                     command = input("js-tool> ").strip()
                 except KeyboardInterrupt:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
                 except EOFError:
-                    print("\nGoodbye!")
+                    print("\n[!] Goodbye!")
                     break
 
             if not command:
                 continue
 
             if command.lower() in {'exit', 'quit'}:
-                print("Exiting JS extractor.")
+                print("[!] Exiting JS extractor.")
                 break
 
             if command.lower() in {'help', '?'}:
