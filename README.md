@@ -140,6 +140,8 @@ options:
                         find_(simple)_vul_in_js
   -sfjs, --secrets_finder
                         find_secrets_in_js_files
+  -automation, --automation
+                        automation all of them
 ```
 ---
 
