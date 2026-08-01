@@ -3,8 +3,9 @@ import subprocess
 import shutil
 import sys
 from pathlib import Path
+import time
 
-def run_subdomain_takover():
+def run_subdomain_takover(args):
     print('[-] starting subdomain tool...')
     def run():
 
@@ -47,6 +48,39 @@ def run_subdomain_takover():
 
             return output_path
 
+        def grep(resolve3_path):
+            """فقط وقتی -grep داده شده باشه اجرا میشه"""
+            if not args.grep_option:
+                return
+
+            list_status = [401, 403, 500, 501, 505, 200, 301, 302, 307, 204]
+            print('grep running\nstatus codes:\n', list_status)
+            user_option = input('do you wanna add another status code? [n]\n=> ')
+            if user_option and user_option != 'n':
+                list_status.append(int(user_option.strip()))
+                print(f'new status codes is =>\n{list_status}')
+
+            print('running grep...')
+            clean_path = resolve3_path.parent / "clean_resolve3.txt"
+
+            res = subprocess.run(["uro", "-i", str(resolve3_path)], capture_output=True, text=True)
+            if res.stdout:
+                with open(clean_path, 'w') as f:
+                    f.write(res.stdout)
+            if res.stderr:
+                print(f'error=>\n{res.stderr}')
+
+            print(f'grep in => [{clean_path}]...')
+            for code in list_status:
+                grep_res = subprocess.run(["grep", str(code), str(clean_path)], capture_output=True, text=True)
+                if grep_res.stdout:
+                    out_file = resolve3_path.parent / f"grep_{code}_clean_resolve.txt"
+                    with open(out_file, 'w') as f:
+                        f.write(grep_res.stdout.strip())
+                if grep_res.stderr:
+                    print(f'Error\n{grep_res.stderr}')
+                    return
+                time.sleep(1)
 
         def main():
             
@@ -86,19 +120,21 @@ def run_subdomain_takover():
             print(f"    - {resolve2_txt}")
             print(f"    - {resolve3_txt}")
 
+            return resolve3_txt
 
             
-        main()
-
+        resolve3_txt = main()
+        grep(resolve3_txt)
     run()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="runnig pipline subfinder -> dnsx -> naabu -> httpx")
     
     parser.add_argument("-d", "--domain", help="target domain")
-    parser.add_argument('-o', '--output', help='output directory')
+    parser.add_argument('-o', '--output', default='./subdomain_tool',help='output directory')
     parser.add_argument("-tp", "--top-ports", default="1000", help="top ports to scan (default: 1000)")
     parser.add_argument("-ep", "--exclude-ports", default="", help="ports to exclude from scan (comma-separated)")
+    parser.add_argument("-grep", "--grep_option", help="grep option for taking importent information from 'HTTPX'.", action="store_true")
     
     args = parser.parse_args()
     run_subdomain_takover(args)   
