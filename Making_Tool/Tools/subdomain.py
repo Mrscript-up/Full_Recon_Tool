@@ -49,7 +49,7 @@ def run_subdomain_takover(args):
             return output_path
 
         def grep(resolve3_path):
-            """فقط وقتی -grep داده شده باشه اجرا میشه"""
+
             if not args.grep_option:
                 return
 
