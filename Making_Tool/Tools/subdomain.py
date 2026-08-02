@@ -4,6 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 import time
+BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
 
 def run_subdomain_takover(args):
     print('[-] starting subdomain tool...')
@@ -101,12 +102,16 @@ def run_subdomain_takover(args):
                 append=True,
             )
 
+            time.sleep(1.5)
+
             # step 2
             run_from_file(
                 cmd=["naabu", "-top-ports", args.top_ports, "-ep", args.exclude_ports],
                 input_file=resolve_txt,
                 output_path=resolve2_txt,
             )
+
+            time.sleep(1.5)
 
             # step 3
             run_from_file(
@@ -128,10 +133,13 @@ def run_subdomain_takover(args):
     run()
 
 if __name__ == "__main__":
+    print(f"{BLUE}============================================={END}")
+    print(f"{BLUE}   subdomain Automation (Python) {END}")
+    print(f"{BLUE}============================================={END}\n")
     parser = argparse.ArgumentParser(description="runnig pipline subfinder -> dnsx -> naabu -> httpx")
     
-    parser.add_argument("-d", "--domain", help="target domain")
-    parser.add_argument('-o', '--output', default='./subdomain_tool',help='output directory')
+    parser.add_argument("-d", "--domain", help="your target domain")
+    parser.add_argument('-o', '--output', default='./subdomain_tool',help='output directory (default: ./subdomain_tool)')
     parser.add_argument("-tp", "--top-ports", default="1000", help="top ports to scan (default: 1000)")
     parser.add_argument("-ep", "--exclude-ports", default="", help="ports to exclude from scan (comma-separated)")
     parser.add_argument("-grep", "--grep_option", help="grep option for taking importent information from 'HTTPX'.", action="store_true")
