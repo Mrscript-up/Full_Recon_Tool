@@ -541,6 +541,8 @@ def run_commnet_descovary_tool(args=None):
                              help='Output file path (default: comments_output.txt)')
         parser.add_argument('-f', '--format', choices=['txt', 'json', 'md'],
                              default='txt', help='Output format (default: txt)')
+        parser.add_argument('--json', dest='format', action='store_const',
+                             const='json', help='Write the report as JSON')
         parser.add_argument('-e', '--extensions',
                              help='Comma-separated list of extensions/filenames to '
                                   'include (e.g. .py,.js,.html,Dockerfile)')
@@ -733,4 +735,4 @@ def run_commnet_descovary_tool(args=None):
 
         run_from_args(args)
 
-    main(args)
+    main(args) 
