@@ -4,6 +4,8 @@ requests
 beautifulsoup4
 matplotlib
 pyjsparser
+requests
+colorama
 
 
 # NOTE:
