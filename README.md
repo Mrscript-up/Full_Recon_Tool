@@ -142,6 +142,8 @@ options:
                         find_secrets_in_js_files
   -automation, --automation
                         automation all of them
+  -ps --port_scaner
+                   port scaner
 ```
 ---
 
