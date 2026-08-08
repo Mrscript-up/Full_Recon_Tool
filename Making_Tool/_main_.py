@@ -79,7 +79,8 @@ if __name__ == "__main__":
     args.add_argument('-lfjs', '--link_finder', help='find_link_in_js_files',action="store_true")
     args.add_argument('-vsjs', '--vulnerability_scan', help='find_(simple)_vul_in_js',action="store_true")
     args.add_argument('-sfjs', '--secrets_finder', help='find_secrets_in_js_files',action="store_true")
-    args.add_argument('-automation', '--automation', help='automation all of them', action='store_true')   
+    args.add_argument('-automation', '--automation', help='automation all of them', action='store_true')
+    args.add_argument('-ps', '--port_scan', help='port scanner [subdomain]', action='store_true')    
     pa = args.parse_args()
 
     if not any(vars(pa).values()):
@@ -116,5 +117,8 @@ if __name__ == "__main__":
 
     if pa.secrets_finder:
         run_tool(run_secrets_tool, pa, 'secrets_finder')
+
+    if pa.port_scan:
+        run_tool()
 
         

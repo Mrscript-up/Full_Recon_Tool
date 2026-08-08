@@ -4,7 +4,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
-
+import subprocess
 import requests
 
 
@@ -174,7 +174,8 @@ if __name__ == "__main__":
     print(f"{BLUE}============================================={END}")
     print(f"{BLUE}            Port Scanner (Python) {END}")
     print(f"{BLUE}============================================={END}\n")
-
+    print(f'{YELLOW}NOTE:{END} if you`ve use subdomain tool , give the res to this tool for scan , otherwise nothing :) ')
+    
     words = [122, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     argument_parser = argparse.ArgumentParser(description="Port Scanner")
     argument_parser.add_argument("-t", "--target_url", help="Target URL for reconnaissance")
@@ -193,8 +194,14 @@ if __name__ == "__main__":
     argument_parser.add_argument("-o", "--output", help="output directory or .txt file")
     argument_parser.add_argument("-sb", "--subdomain_list", help="file containing subdomain URLs")
 
-    args = argument_parser.parse_args()
+    
+    argument_parser.print_help()
+    user_command = input('[-] select your command [exit=exit] => ').split()
+    if user_command == 'exit':
+        sys.exit()
+    args = argument_parser.parse_args(user_command)
     scanner = start(args)
+    
     try:
         scanner.start_port_scan()
     except KeyboardInterrupt:
