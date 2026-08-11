@@ -9,7 +9,7 @@ def run_clean_js_tool():
     const path = require('path');
     const { execSync } = require('child_process');
 
-    const inputDir = './input_js';
+    const inputDir = './inpu';
     const outputDir = './output_js';
 
     if (!fs.existsSync(outputDir)) {
@@ -53,4 +53,4 @@ def run_clean_js_tool():
     """
     path = Path('script.js')
     path.write_text(script,encoding='utf-8')
-    subprocess.run(['node'], ['script.js'])
+    subprocess.run(['node', 'script.js'])
