@@ -141,7 +141,7 @@ options:
   -sfjs, --secrets_finder
                         find_secrets_in_js_files
   -automation, --automation
-                        automation all of them
+                        automation all of them tools
   -ps --port_scaner
                    port scaner
 ```
