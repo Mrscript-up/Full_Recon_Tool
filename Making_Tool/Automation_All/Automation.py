@@ -159,6 +159,7 @@ ROW: {len(self.online_js_files)}
                         
                         if is_jsfuck:
                             print(f"ITS A JSFUCK FILE {jsfiles}")
+                            os.remove(jsfiles)
                         else:
                             print(f"ITS A PLAIN JS FILE {jsfiles}")
                             self.clean_js_files.append(jsfiles)
@@ -167,8 +168,70 @@ ROW: {len(self.online_js_files)}
                         print(f"Error on reading process : {e}")
                 print(f'cont of clean js files => {len(self.clean_js_files)}')
                 print(f'Files => \n{self.clean_js_files}')
+                self.prosess_tool.append('FINISH_TOOL5')
+                self.All_Output.append('./script_js/')
                   
 
+    def run_5_clern_js_files(self):
+        if 'FINISH_TOOL5' in self.prosess_tool:
+            
+            from pathlib import Path
+
+            
+            print('[-] run clean js')
+
+            script = """
+            const fs = require('fs');
+            const path = require('path');
+            const { execSync } = require('child_process');
+
+            const inputDir = './script_js/';
+            const outputDir = './output_clean_js/';
+
+            if (!fs.existsSync(outputDir)) {
+                fs.mkdirSync(outputDir, { recursive: true });
+            }
+
+            const files = fs.readdirSync(inputDir).filter(file => {
+                // filtering (Source Maps)
+                if (file.endsWith('.js.map')) return false;
+                // just js files...
+                return file.endsWith('.js');
+            });
+
+            files.forEach(file => {
+                const inputPath = path.join(inputDir, file);
+                const baseName = path.basename(file, '.js');
+                const outputFileName = `${baseName}_clean.js`;
+                const outputPath = path.join(outputDir, outputFileName);
+
+                // read file... (Obfuscation)
+                const content = fs.readFileSync(inputPath, 'utf8');
+                
+                // simple check for JSFuck...
+                const jsFuckRegex = /^[()[\]!+]+$/;
+                const cleanContent = content.replace(/\s/g, ''); // for check...
+                if (cleanContent.length > 20 && jsFuckRegex.test(cleanContent)) {
+                    console.log(`[*] dont accept (JSFuck): ${file}`);
+                    return; // dont processing
+                }
+
+                console.log(`[-] processing: ${file} ...`);
+
+                try {
+                    // dont give this tool brainfuck or jsfuck files.
+                    execSync(`npx prettier --parser babel "${inputPath}" > "${outputPath}"`, { stdio: 'inherit' });
+                    console.log(`[+] save (: ${outputFileName}\n`);
+                } catch (err) {
+                    console.error(`[!] error ${file} (anknow syntask for Prettier ): `);
+                }
+            });
+            """
+            path = Path('script.js')
+            path.write_text(script,encoding='utf-8')
+            subprocess.run(['node', 'script.js'],shell=True,capture_output=True)
+            self.All_Output.append('./output_clean_js/')
+            os.remove(path='./script.js')
 
 
                 
