@@ -11,7 +11,7 @@ from Tools.JS_Tools.linkfinder import run_linkfinder
 from Tools.comment.comment import run_commnet_descovary_tool as comment
 from Tools.JS_Tools.vulnerability import run_vulnerability_tool
 from Tools.JS_Tools.secrets import run_secrets_tool
-from Automation_All.Automation import main as automation_tool
+#from Automation_All.Automation import main as automation_tool
 
 
 class tool_start:
@@ -109,8 +109,8 @@ if __name__ == "__main__":
     if pa.link_finder:
         run_tool(run_linkfinder, pa, 'link_finder')
 
-    if pa.automation:
-        run_tool(automation_tool, pa, 'automation')
+    #if pa.automation:
+        #run_tool()
 
     if pa.vulnerability_scan:
         run_tool(run_vulnerability_tool, pa ,'vulnerability_scan')
