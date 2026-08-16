@@ -109,7 +109,7 @@ ROW: {len(self.online_js_files)}
                         print('starting download js files...')
                         time.sleep(2)
                         for URLS2 in self.online_js_files:
-                            res_wget = subprocess.run(['wget', '-c', '--tries=5', '--timeout=30', '--user-agent="Mozilla/5.0"', f'-O ./script_js/{URLS2}', 'https://example.com/path/to/file.js', '--no-check-certificate'],shell=True,capture_output=True)
+                            res_wget = subprocess.run(['wget', '-c', '--tries=5', '--timeout=30', '--user-agent="Mozilla/5.0"', f'-O ./script_js/{URLS2}', f'{URLS2}', '--no-check-certificate'],shell=True,capture_output=True)
                             time.sleep(2)
                         if res_wget.returncode == "0":
                             print('done wget js files.')
@@ -231,8 +231,28 @@ ROW: {len(self.online_js_files)}
             path.write_text(script,encoding='utf-8')
             subprocess.run(['node', 'script.js'],shell=True,capture_output=True)
             self.All_Output.append('./output_clean_js/')
+            self.prosess_tool.append('FINISH_TOOL6')
             os.remove(path='./script.js')
-
+    
+    def run_js_linkfinder(self):
+        if 'FINISH_TOOL6' in self.prosess_tool:
+            print('start linkfinder tool...')
+            check = os.path.exists(path='./_main_.py')
+            if not check:
+                print('FILE [_main_.py] NOT FOUND')
+            else:
+                FILES = './output_clean_js/'
+                check2 = os.path.exists(path=FILES)
+                if not check2:
+                    print('Directory [output_clean_js/] NOT FOUND!')
+                else:
+                    res = subprocess.run(['./_main_.py', '-lfjs'],shell=True)
+                    if res.returncode == "0":
+                        print('write your files and those option that you want.')
+                        print('use -h')
+                    else:
+                        print(f'Error in run [_main_.py]:\n{res.stderr.decode('utf-8')}')
+                    
 
                 
 
