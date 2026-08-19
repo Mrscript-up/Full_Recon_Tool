@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import os
+from tabnanny import check
 # main files:
 import requests
 import time
@@ -246,12 +247,68 @@ ROW: {len(self.online_js_files)}
                 if not check2:
                     print('Directory [output_clean_js/] NOT FOUND!')
                 else:
-                    res = subprocess.run(['./_main_.py', '-lfjs'],shell=True)
+                    res = subprocess.run(['./linkfinder_2.py', '-f', './output_clean_js/', '-o', './linkfinder_resoulve/'], shell=True)
                     if res.returncode == "0":
-                        print('write your files and those option that you want.')
-                        print('use -h')
-                    else:
-                        print(f'Error in run [_main_.py]:\n{res.stderr.decode('utf-8')}')
+                        print('DONE => linkfinder tool')
+                        self.prosess_tool.append('FINISH_TOOL7')
+                        self.All_Output.append('./linkfinder_resoulve/')
+                    if res.stderr:
+                        print(f'ERRROR in run "linkfinder" tool \n{res.stderr.decode('utf-8')}')
+
+
+
+    def show_process_untill_now(self):
+        print('do you want the tool show you the process untill here ?[y,n]')
+        yes_no = input('=> ')
+        if yes_no.lower() == 'n':
+            return
+        if yes_no.lower() == 'y':
+            print('show process...')
+            _F_ = '-'
+            print(f'''
+process:
+ALL OUTPUT:
+{'\n'.join(self.All_Output)}
+{_F_ * 20}
+peocess tools:
+{len(','.join(self.prosess_tool))}
+{_F_ * 20}
+clean js files:
+{'\n'.join(self.clean_js_files)}
+{_F_ * 20}
+''')
+
+
+
+    def run_js_secrets_finder(self):
+        if 'FINISH_TOOL7' in self.prosess_tool:
+            print('start secrets finder...')
+            check = os.path.exists(path='./secretsfinder_2.py')
+            check2 = os.path.exists(path='./linkfinder_resoulve/')  
+            if not check:
+                print('FILE [./secretsfinder_2.py] NOT FOUND!')
+            if not check2:
+                print('DIRECTORY [./linkfinder_resoulve/] NOT FOUND!')
+
+            FILES = './output_clean_js/'
+            res = subprocess.run(['./secretsfinder_2.py', './output_clean_js/', '-o', './secretsfinder_resoulve/'], shell=True, capture_output=True)
+            if res.returncode == '0':
+                print('DONE [secretsfinder_2.py] TOOL.')
+                self.prosess_tool.append('FINISH_TOOL8')
+                self.All_Output.append('./secretsfinder_resoulve/')
+            if res.stderr:
+                print(f'ERROR in run [secretsfinder_2.py] tool \n {res.stderr.decode('utf-8')}')
+
+    def run_js_takinginformationjs(self):
+        if 'FINISH_TOOL8' in self.prosess_tool:
+            print('start taking information js tool...')
+            check = os.path.exists(path='./taking_informationjs_2.py')
+            check2 = os.path.exists(path='./secretsfinder_resoulve/')
+            if not check:
+                print('FILE [./taking_informationjs_2.py] NOT FOUND!')
+            if not check2:
+                print('DIRECTORY [./secretsfinder_resoulve/] NOT FOUND!')
+            FILES = './output_clean_js/'         
                     
 
                 
