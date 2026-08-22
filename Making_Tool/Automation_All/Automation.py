@@ -10,7 +10,20 @@ import time
 from Making_Tool.Automation_All.needs.tec2 import run_Tec_tool
 
 
-BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
+B, R, WHITE, Y, MAGENTA, G, E = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
+
+
+#status:
+def print_err(self,masseg):
+    print(f"[!][ERROR] {masseg}".split())
+def print_status(self,masseg):
+    print(f"[*] {masseg}".split())
+def print_res(self,masseg):
+    print(f"[+] {masseg}".split())
+def print_ct(self,masseg):
+    print(f"[-] {masseg}".split())
+
+
 
 class Fucking_Start:
     def __init__(self,domain):
@@ -19,6 +32,9 @@ class Fucking_Start:
         self.prosess_tool = []
         self.online_js_files = []
         self.clean_js_files = []
+        self.other_options = []
+
+    
 
     def run_1_subdomain(self):
         print(f'Stating subdomain takover by these command :\nsubdomain.py -d {self.target_domain} -o subdomain_output/{self.target_domain}/')
@@ -298,6 +314,7 @@ clean js files:
                 self.All_Output.append('./secretsfinder_resoulve/')
             if res.stderr:
                 print(f'ERROR in run [secretsfinder_2.py] tool \n {res.stderr.decode('utf-8')}')
+                return
 
     def run_js_takinginformationjs(self):
         if 'FINISH_TOOL8' in self.prosess_tool:
@@ -308,8 +325,94 @@ clean js files:
                 print('FILE [./taking_informationjs_2.py] NOT FOUND!')
             if not check2:
                 print('DIRECTORY [./secretsfinder_resoulve/] NOT FOUND!')
-            FILES = './output_clean_js/'         
-                    
+            FILES = './output_clean_js/' 
+            res = subprocess.run(['./takinginfo_js.py', f'{FILES}', '-o', './information_js_resoulve/'],shell=True,capture_output=True)
+            if res.returncode == '0':
+                print('DONE [takinginfo_js] TOOL...')
+                self.prosess_tool.append("FINISH_TOOL9")
+                self.All_Output.append("./information_js_resoulve/")
+            if res.stderr:
+                print(f"Error in processing [takinginfo_js.py] TOOL!\n{res.stderr.decode('utf-8')}")
+                return
+
+    def run_vulnerability_scan_js(self):
+        if "FINISH_TOOL9" in self.prosess_tool:
+            print_status('run [vulnerability.py] tool...')
+            check = os.path.exists(path='./vulnerability_2.py')
+            check2 = os.path.exists(path='./information_js_resoulve/')
+            if not check:
+                print_err('FILE [./vulnerability_2.py] NOT FOUND!')
+            if not check2:
+                print_err('DIRECTORY [./information_js_resoulve/] NOT FOUND!')
+            FILES = './output_clean_js/'
+            res = subprocess.run(['./vulnerability_2.py', f'{FILES}', '-o', './vulnerability_scaning_res'])
+            if res.returncode == '0':
+                print_status('DONE [vulnerability_2.py] TOOL.')
+                self.prosess_tool.append("FINISH_TOOL10")
+                self.All_Output.append("./vulnerability_scaning_res")
+            if res.stderr:
+                print_err(f'Error in [vulnerability_2.py] tool.\n{res.stderr.decode('utf-8')}')
+                return
+            
+            show_or_not = input('show resoulves?[y,n]\n=> ')
+            if show_or_not is None:
+                print_err('please select [y,n]')
+                while show_or_not is None:
+                    show_or_not = input('show resoulves?[y,n]\n=> ')
+            if show_or_not.lower() == 'y':
+                return
+            if show_or_not.lower() == 'n':
+                print_ct("OK")
+                print_status("run comment finder tool...")
+
+    def run_comment_finder_tool(self):
+        if "FINISH_TOOL11" in self.prosess_tool:
+            check = os.path.exists(path='./comment_finder_2.py')
+            check2 = os.path.exists(path='./vulnerability_scaning_res')
+            if not check:
+                print_err('FILE [./comment_finder_2.py] NOT FOUND!')
+            if not check2:
+                print_err('DIRECTORY [./vulnerability_scaning_res] NOT FOUND!')
+            FILES = './output_clean_js/'
+            res = subprocess.run(['./comment_finder_2.py', './output_clean_js/', '-o', './comment_finder_js_resoulves/'])
+            if res.returncode == '0':
+                print_status('DONE [comment_finder_2.py] TOOL.')
+                self.prosess_tool.append("FINISH_TOOL12")
+                self.All_Output.append("./comment_finder_js_resoulves/")
+            if res.stderr:
+                print_err(f'Error in [comment_finder_2.py] Tool! \n {res.stderr.decode('utf-8')}')
+            other_options = input('do you have another file to add for exfiltrate comment?[y,n]\n=> ')
+            if not other_options:
+                print_err('please select a option! [y,n]')
+                while other_options in None:
+                    other_options = input('=> ')
+            if other_options.lower() == 'y':
+                self_other = input('add your options\n => ')
+                if not self_other:
+                    print('please add your option')
+                    while not self_other:
+                        self_other = input('=> ')
+                else:
+                    print_status(f'your option has been add \n {self_other}')
+                    self.other_options.append(self_other)
+                    print_ct(len(self.other_options))
+                    for files in self.other_options:
+                        subprocess.run(['./comment_finder_2.py', f'{files}', '-o', f'./comment_finder_personal_files/{files}_res.txt'])
+                        time.sleep(2)
+                    print_status('DONE [comment_finder_2.py PL] Tool.')
+                    self.All_Output.append("./comment_finder_personal_files/")
+            if other_options.lower() == 'n':
+                print_ct('ok , start next section ....')
+
+    def run_compackt(self):
+        if "FINISH_TOOL12" in self.prosess_tool:
+            
+
+
+            
+                      
+
+
 
                 
 
