@@ -406,7 +406,10 @@ clean js files:
 
     def run_compackt(self):
         if "FINISH_TOOL12" in self.prosess_tool:
-            
+
+            print_ct('the end.')
+            print_status('run compackt tool ...')
+           
 
 
             
