@@ -409,7 +409,9 @@ clean js files:
 
             print_ct('the end.')
             print_status('run compackt tool ...')
-           
+            # check:
+            check = os.path.exists(path='./comment_finder_personal_files/')
+            
 
 
             
