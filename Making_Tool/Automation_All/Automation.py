@@ -411,6 +411,13 @@ clean js files:
             print_status('run compackt tool ...')
             # check:
             check = os.path.exists(path='./comment_finder_personal_files/')
+            print(f"""
+All Files:
+{self.All_Output}
+{'-'*20}
+Processing of Tools:
+{self.prosess_tool}
+""")
             
 
 
