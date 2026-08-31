@@ -113,6 +113,7 @@ git => https://github.com/Mrscript-up/Full_Recon_Tool
     #if pa.automation:
         #run_tool()
         # try to fix and done option.
+        # waiting for more resilves...
 
     if pa.vulnerability_scan:
         run_tool(run_vulnerability_tool, pa ,'vulnerability_scan')
