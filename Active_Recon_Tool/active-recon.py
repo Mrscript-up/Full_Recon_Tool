@@ -47,8 +47,18 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                 host_match = re.search(r'Host:\s*([^\r\n]+)', request_str, re.IGNORECASE)
                 domain = host_match.group(1).strip() if host_match else "Unknown_Domain"
                 
+                # Extract Request Body (REQ-DATA)
+                req_body_offset = request_info.getBodyOffset()
+                req_data = ""
+                if len(request_str) > req_body_offset:
+                    req_data = request_str[req_body_offset:].strip()
+                
+                # URL Decode REQ-DATA using Burp's native API
+                req_data_decoded = self._helpers.urlDecode(req_data) if req_data else ""
+                
                 status_code = "N/A"
-                response_headers_only = ""
+                res_headers_only = ""
+                res_data = ""
                 response_bytes = message.getResponse()
                 
                 if response_bytes:
@@ -56,67 +66,78 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                     response_info = self._helpers.analyzeResponse(response_bytes)
                     status_code = str(response_info.getStatusCode())
                     
-                    # Get the exact offset where headers end and body begins
-                    body_offset = response_info.getBodyOffset()
+                    # Extract Response Headers (RES) and Response Body (RES-DATA)
+                    res_body_offset = response_info.getBodyOffset()
+                    res_headers_only = response_str_full[:res_body_offset].strip()
                     
-                    # Slice the string to only include headers
-                    response_headers_only = response_str_full[:body_offset].strip()
+                    if len(response_str_full) > res_body_offset:
+                        res_data = response_str_full[res_body_offset:].strip()
 
-                md_content = self.build_markdown(domain, url, method, status_code, request_str, response_headers_only)
+                    # URL Decode RES-DATA using Burp's native API
+                    res_data_decoded = self._helpers.urlDecode(res_data) if res_data else ""
+                else:
+                    res_data_decoded = ""
+
+                md_content = self.build_markdown(domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded)
                 self.save_to_file(domain, md_content)
             except Exception as e:
                 print("Error processing request: " + str(e))
 
-    def build_markdown(self, domain, url, method, status, req, res):
-        template = """# DOMAIN_PLACEHOLDER
-***
-#page
-## Summery:
-**PHOTO**:
+    def build_markdown(self, domain, url, method, status, req, req_data, res, res_data):
+        template = """
 ### [DOMAIN_PLACEHOLDER] Page:
-**URL** : URL_PLACEHOLDER 
-**METHODE**: `METHOD_PLACEHOLDER` 
-**NOTE-REQ**: 
+**URL** : URL_PLACEHOLDER #URL
+**METHODE**: `METHOD_PLACEHOLDER` #METHOD_PLACEHOLDER-req
+**NOTE-REQ**: #note-req
 > 
 
-**STATUS**: `STATUS_PLACEHOLDER` 
+**STATUS**: `STATUS_PLACEHOLDER` #status_STATUS_PLACEHOLDER
 **REQ**:
 ```python
 REQ_PLACEHOLDER
+```
+**REQ-DATA**:
+`decode`
+```python
+REQ_DATA_PLACEHOLDER
 ```
 **RES**:
 ```python
 RES_PLACEHOLDER
 ```
+**RES-DATA**:
+`decode`
+```python
+RES_DATA_PLACEHOLDER
+```
+***
 """
         template = template.replace("DOMAIN_PLACEHOLDER", domain)
         template = template.replace("URL_PLACEHOLDER", url)
         template = template.replace("METHOD_PLACEHOLDER", method)
         template = template.replace("STATUS_PLACEHOLDER", status)
         template = template.replace("REQ_PLACEHOLDER", req)
+        template = template.replace("REQ_DATA_PLACEHOLDER", req_data)
         template = template.replace("RES_PLACEHOLDER", res)
+        template = template.replace("RES_DATA_PLACEHOLDER", res_data)
         return template
 
     def save_to_file(self, domain, content):
         try:
             timestamp = int(time.time())
             
-            # Get Desktop path
             home_dir = System.getProperty("user.home")
             desktop_dir = home_dir + "/Desktop/"
             
-            # Ensure Desktop directory exists (in case of OneDrive redirection issues)
             desktop_folder = File(desktop_dir)
             if not desktop_folder.exists():
                 desktop_folder.mkdirs()
             
-            # Sanitize filename
             safe_domain = re.sub(r'[^a-zA-Z0-9_\-\.]', '', domain)
             filename = "recon_" + safe_domain.replace(".", "_") + "_" + str(timestamp) + ".md"
             
             file_path = desktop_dir + filename
             
-            # Write file with UTF-8 encoding
             f = File(file_path)
             fos = FileOutputStream(f)
             osw = OutputStreamWriter(fos, "UTF-8")
