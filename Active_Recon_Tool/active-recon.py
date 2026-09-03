@@ -157,3 +157,4 @@ class MenuActionListener(ActionListener):
 
     def actionPerformed(self, event):
         self.extender.process_request(self.invocation)
+        
