@@ -162,5 +162,8 @@ crumb, id, buttonText, clickthroughUrl, alignment, size, newWindow, context, vis
 
 ### output photo:
 ![alt text](image.png)
+***
 ![alt text](image-1.png)
+***
 ![alt text](image-2.png)
+***
