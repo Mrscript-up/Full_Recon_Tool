@@ -167,3 +167,5 @@ crumb, id, buttonText, clickthroughUrl, alignment, size, newWindow, context, vis
 ***
 ![alt text](/Active_Recon_Tool/photos/image-2.png)
 ***
+
+<p align="center"> <img src="https://capsule-render.vercel.app/api?type=waving&color=00FF00&height=120&section=footer"/> </p>
