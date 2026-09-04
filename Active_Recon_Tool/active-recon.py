@@ -183,15 +183,104 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                     res_data_decoded = self._helpers.urlDecode(res_data) if res_data else ""
 
                 self._request_counter += 1
-                md_content = self.build_markdown(self._request_counter, domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded)
+
+                req_params = self.extract_request_parameters(request_info, req_data_decoded)
+                res_params = self.extract_response_parameters(res_data_decoded)
+
+                # Merge + de-duplicate while preserving first-seen order
+                seen = set()
+                all_params = []
+                for name in req_params + res_params:
+                    if name not in seen:
+                        seen.add(name)
+                        all_params.append(name)
+
+                md_content = self.build_markdown(self._request_counter, domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded, all_params)
                 self.append_to_file(output_path, md_content)
             except Exception as e:
                 print("Error processing request: " + str(e))
 
-    def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data):
+    def extract_json_keys(self, text):
+        """
+        Best-effort extraction of JSON property names from a text blob.
+        Uses Jython's json module when the text parses as valid JSON
+        (covers nested objects/arrays), and falls back to a regex scan
+        for "key": patterns when it doesn't (partial/invalid JSON,
+        JS-ish bodies, etc).
+        """
+        names = []
+
+        try:
+            import json
+            parsed = json.loads(text)
+            self._walk_json_keys(parsed, names)
+            if names:
+                return names
+        except Exception:
+            pass
+
+        # Fallback: regex scan for "key": occurrences
+        for m in re.finditer(r'"([A-Za-z0-9_\-\.\[\]]+)"\s*:', text):
+            names.append(m.group(1))
+
+        return names
+
+    def _walk_json_keys(self, node, names):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                names.append(k)
+                self._walk_json_keys(v, names)
+        elif isinstance(node, list):
+            for item in node:
+                self._walk_json_keys(item, names)
+
+    def extract_request_parameters(self, request_info, req_data_decoded):
+        """
+        Collects parameter/property names found in:
+        - the URL query string
+        - the request body (form-encoded, multipart, or JSON)
+        """
+        names = []
+
+        try:
+            for param in request_info.getParameters():
+                names.append(str(param.getName()))
+        except Exception as e:
+            print("Error reading request parameters: " + str(e))
+
+        # Catch JSON bodies that Burp's parameter parser may not fully expand
+        # (nested objects/arrays), by scanning the raw decoded body too.
+        if req_data_decoded:
+            stripped = req_data_decoded.strip()
+            if stripped.startswith("{") or stripped.startswith("["):
+                names.extend(self.extract_json_keys(req_data_decoded))
+
+        return names
+
+    def extract_response_parameters(self, res_data_decoded):
+        """
+        Collects property names found in the response body (JSON keys,
+        or key=value style fields).
+        """
+        names = []
+
+        if not res_data_decoded:
+            return names
+
+        stripped = res_data_decoded.strip()
+        if stripped.startswith("{") or stripped.startswith("["):
+            names.extend(self.extract_json_keys(res_data_decoded))
+        else:
+            # key=value style bodies (e.g. form-encoded-ish responses)
+            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=', res_data_decoded):
+                names.append(m.group(1))
+
+        return names
+
+    def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data, parameters):
         template = """
 ### [DOMAIN_PLACEHOLDER] Page:
-**Request**: REQUEST_NUMBER_PLACEHOLDER
+### Request: REQUEST_NUMBER_PLACEHOLDER
 **URL** : URL_PLACEHOLDER #URL
 **METHODE**: `METHOD_PLACEHOLDER` #METHOD_PLACEHOLDER-req
 **NOTE-REQ**: #note-req
@@ -216,6 +305,10 @@ RES_PLACEHOLDER
 ```python
 RES_DATA_PLACEHOLDER
 ```
+**PARAMETERS**: #parameters
+```python
+PARAMETERS_PLACEHOLDER
+```
 ***
 """
         template = template.replace("REQUEST_NUMBER_PLACEHOLDER", str(request_number))
@@ -227,6 +320,8 @@ RES_DATA_PLACEHOLDER
         template = template.replace("REQ_DATA_PLACEHOLDER", req_data)
         template = template.replace("RES_PLACEHOLDER", res)
         template = template.replace("RES_DATA_PLACEHOLDER", res_data)
+        parameters_str = ", ".join(parameters) if parameters else "(none found)"
+        template = template.replace("PARAMETERS_PLACEHOLDER", parameters_str)
         return template
 
     def append_to_file(self, file_path, content):
