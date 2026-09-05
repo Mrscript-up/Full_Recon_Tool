@@ -279,6 +279,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
     def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data, parameters):
         template = """
+***
 ### [DOMAIN_PLACEHOLDER] Page:
 ### Request: REQUEST_NUMBER_PLACEHOLDER
 **URL** : URL_PLACEHOLDER #URL
