@@ -63,7 +63,7 @@ For authorized security testing and bug bounty programs only.
 
 ## example :
 ### Main Request:
-```
+```req
 POST /api/census/button-render HTTP/2
 Host: www.embark-studios.com
 Cookie: crumb=BWNvoyDDh4SJZDdhYWFiYWQwNmQ5Yjg4NGY1Y2M1OTg5YWM0OTc3
@@ -99,7 +99,7 @@ Content-Length: 17
 ```
 
 ### output:
-```
+```req
 ### [www.embark-studios.com] Page:
 ### Request: 1
 **URL** : https://www.embark-studios.com:443/api/census/button-render #URL
@@ -129,13 +129,13 @@ Te: trailers
 
 {"id":"block-2c44670f67a2a7cd3986","buttonText":"\n    Join us\n  ","clickthroughUrl":"https://careers.embark-studios.com/","alignment":"","size":"large","newWindow":true,"context":1,"visitorCookie":"7c70bbeb-f1c3-429b-8736-2cfa3ba7668c|1788538122824|1788538122824|1788538122824|1","pagePermissionTypeValue":1,"pageTitle":"HOME","pageId":"61ae15f0069b5d5e122bd1a4","contentSource":"c","pagePath":"/"}
 ```
-```
+```req
 **REQ-DATA**:
 `decode`
 ```python
 {"id":"block-2c44670f67a2a7cd3986","buttonText":"\n    Join us\n  ","clickthroughUrl":"https://careers.embark-studios.com/","alignment":"","size":"large","newWindow":true,"context":1,"visitorCookie":"7c70bbeb-f1c3-429b-8736-2cfa3ba7668c|1788538122824|1788538122824|1788538122824|1","pagePermissionTypeValue":1,"pageTitle":"HOME","pageId":"61ae15f0069b5d5e122bd1a4","contentSource":"c","pagePath":"/"}
 ```
-```
+```req
 **RES**:
 ```python
 HTTP/2 200 OK
@@ -148,13 +148,13 @@ X-Content-Type-Options: nosniff
 X-Contextid: VFXDQRnN/kyzuSiQY
 Content-Length: 17
 ```
-```
+```req
 **RES-DATA**:
 `decode`
 ```python
 {"success": true}
 ```
-```
+```req
 **PARAMETERS**: #parameters
 ```python
 crumb, id, buttonText, clickthroughUrl, alignment, size, newWindow, context, visitorCookie, pagePermissionTypeValue, pageTitle, pageId, contentSource, pagePath, success
