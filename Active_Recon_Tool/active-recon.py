@@ -195,7 +195,19 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                         seen.add(name)
                         all_params.append(name)
 
-                md_content = self.build_markdown(self._request_counter, domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded, all_params)
+                # ---- NEW: name=value pairs (request + response) ----
+                req_param_values = self.extract_request_parameter_values(request_info, req_data_decoded)
+                res_param_values = self.extract_response_parameter_values(res_data_decoded)
+
+                seen_values = set()
+                all_param_values = []
+                for name, value in req_param_values + res_param_values:
+                    key = (name, value)
+                    if key not in seen_values:
+                        seen_values.add(key)
+                        all_param_values.append((name, value))
+
+                md_content = self.build_markdown(self._request_counter, domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded, all_params, all_param_values)
                 self.append_to_file(output_path, md_content)
             except Exception as e:
                 print("Error processing request: " + str(e))
@@ -233,6 +245,57 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         elif isinstance(node, list):
             for item in node:
                 self._walk_json_keys(item, names)
+
+    # ---------- NEW: JSON key/value extraction ----------
+
+    def extract_json_key_values(self, text):
+        """
+        Best-effort extraction of (key, value) pairs from a JSON text blob.
+        Nested keys use dotted/bracket paths (e.g. "user.address.city",
+        "items[0].id") so values stay traceable to their location.
+        Falls back to a regex scan of "key": value pairs when the text
+        doesn't parse as valid JSON.
+        """
+        pairs = []
+
+        try:
+            import json
+            parsed = json.loads(text)
+            self._walk_json_key_values(parsed, "", pairs)
+            if pairs:
+                return pairs
+        except Exception:
+            pass
+
+        # Fallback: regex scan for "key": "value" or "key": value occurrences
+        for m in re.finditer(r'"([A-Za-z0-9_\-\.\[\]]+)"\s*:\s*("(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null)', text):
+            key = m.group(1)
+            raw_value = m.group(2)
+            if raw_value.startswith('"') and raw_value.endswith('"'):
+                raw_value = raw_value[1:-1]
+            pairs.append((key, raw_value))
+
+        return pairs
+
+    def _walk_json_key_values(self, node, path, pairs):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                new_path = (path + "." + str(k)) if path else str(k)
+                self._walk_json_key_values(v, new_path, pairs)
+        elif isinstance(node, list):
+            for idx, item in enumerate(node):
+                new_path = "%s[%d]" % (path, idx)
+                self._walk_json_key_values(item, new_path, pairs)
+        else:
+            # Leaf value (string, number, bool, None)
+            pairs.append((path, self._stringify_leaf(node)))
+
+    def _stringify_leaf(self, value):
+        if value is None:
+            return "null"
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(value)
 
     def extract_request_parameters(self, request_info, req_data_decoded):
         """
@@ -277,7 +340,55 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
         return names
 
-    def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data, parameters):
+    # ---------- NEW: parameter VALUE extraction (request + response) ----------
+
+    def extract_request_parameter_values(self, request_info, req_data_decoded):
+        """
+        Collects (name, value) pairs found in:
+        - the URL query string / form params (via Burp's own parser)
+        - the request body when it's JSON (dotted-path keys)
+        """
+        pairs = []
+
+        try:
+            for param in request_info.getParameters():
+                name = str(param.getName())
+                try:
+                    value = self._helpers.urlDecode(str(param.getValue()))
+                except Exception:
+                    value = str(param.getValue())
+                pairs.append((name, value))
+        except Exception as e:
+            print("Error reading request parameter values: " + str(e))
+
+        if req_data_decoded:
+            stripped = req_data_decoded.strip()
+            if stripped.startswith("{") or stripped.startswith("["):
+                pairs.extend(self.extract_json_key_values(req_data_decoded))
+
+        return pairs
+
+    def extract_response_parameter_values(self, res_data_decoded):
+        """
+        Collects (name, value) pairs found in the response body
+        (JSON key/value pairs, or key=value style fields).
+        """
+        pairs = []
+
+        if not res_data_decoded:
+            return pairs
+
+        stripped = res_data_decoded.strip()
+        if stripped.startswith("{") or stripped.startswith("["):
+            pairs.extend(self.extract_json_key_values(res_data_decoded))
+        else:
+            # key=value style bodies (e.g. form-encoded-ish responses)
+            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=\s*([^&\s]*)', res_data_decoded):
+                pairs.append((m.group(1), m.group(2)))
+
+        return pairs
+
+    def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data, parameters, parameter_values):
         template = """
 ***
 ### [DOMAIN_PLACEHOLDER] Page:
@@ -310,6 +421,10 @@ RES_DATA_PLACEHOLDER
 ```python
 PARAMETERS_PLACEHOLDER
 ```
+**PARAMETER VALUES**: #parameter_values
+```python
+PARAMETER_VALUES_PLACEHOLDER
+```
 ***
 """
         template = template.replace("REQUEST_NUMBER_PLACEHOLDER", str(request_number))
@@ -323,6 +438,17 @@ PARAMETERS_PLACEHOLDER
         template = template.replace("RES_DATA_PLACEHOLDER", res_data)
         parameters_str = ", ".join(parameters) if parameters else "(none found)"
         template = template.replace("PARAMETERS_PLACEHOLDER", parameters_str)
+
+        if parameter_values:
+            separator = "#-------------------------------------"
+            values_lines = []
+            for name, value in parameter_values:
+                values_lines.append("%s = %s" % (name, value))
+            parameter_values_str = ("\n" + separator + "\n").join(values_lines)
+        else:
+            parameter_values_str = "(none found)"
+        template = template.replace("PARAMETER_VALUES_PLACEHOLDER", parameter_values_str)
+
         return template
 
     def append_to_file(self, file_path, content):
