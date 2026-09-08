@@ -61,7 +61,39 @@ The extension is functional but still under development. More features and impro
 
 For authorized security testing and bug bounty programs only.
 
-## example :
+## AI:
+
+- After reviewing the requests based on the available evidence, you can feed them into the AI ​​and ask it to provide you with the workflow.
+- And after that, it provides you with a step-by-step path to test each workflow.
+example:
+work flow:
+    WF-02 — PKCE Validation
+    Reason:
+    The flow uses `code_challenge` with S256.
+step by step:
+    TEST STEPS
+
+    Step 1
+    Start a fresh authentication flow.
+
+    Step 2
+    Capture the authorization request.
+
+    Step 3
+    Record:
+    - code_challenge
+    - code_challenge_method
+    - state
+    - session cookie
+
+    Expected Secure Behavior
+    The server rejects an invalid PKCE relationship.
+
+    Vulnerability Indicator
+    Authentication succeeds despite the PKCE binding being invalid.
+
+
+## example:
 ### Main Request:
 ```req
 POST /api/census/button-render HTTP/2
