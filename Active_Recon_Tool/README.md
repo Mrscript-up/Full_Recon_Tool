@@ -93,7 +93,7 @@ step by step:
     Authentication succeeds despite the PKCE binding being invalid.
 
 
-## example:
+## example3:
 ### Main Request:
 ```req
 POST /api/census/button-render HTTP/2
