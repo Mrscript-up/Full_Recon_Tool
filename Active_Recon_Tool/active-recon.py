@@ -471,7 +471,7 @@ PARAMETER_VALUES_PLACEHOLDER
 
             print("SUCCESS: Markdown appended to: " + file_path)
         except Exception as e:
-            print("ERROR saving file: " + str(e))
+            print("ERROR saving file => " + str(e))
 
 
 class MenuActionListener(ActionListener):
