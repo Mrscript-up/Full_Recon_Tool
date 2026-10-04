@@ -8,6 +8,8 @@ from java.util import ArrayList
 from java.io import File, FileOutputStream, OutputStreamWriter
 import re
 import time
+import traceback
+
 
 class BurpExtender(IBurpExtender, IContextMenuFactory):
 
@@ -18,12 +20,9 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         callbacks.registerContextMenuFactory(self)
 
         # Persistent state: the currently selected output file.
-        # Stays fixed across multiple "Export to Markdown" actions
-        # until the user explicitly picks a new one via "Change Output File".
         self._output_file_path = None
 
-        # Running counter of how many requests have been exported into the
-        # current output file. Resets to 0 whenever the output file changes.
+        # Running counter of exported requests in the current output file.
         self._request_counter = 0
 
         print("Recon To Markdown Extension Loaded Successfully!")
@@ -41,6 +40,37 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         menu_list.add(change_file_item)
 
         return menu_list
+
+    # ---------- Safe helpers ----------
+
+    def _s(self, v):
+        """Always returns a string, never None."""
+        if v is None:
+            return u""
+        try:
+            if isinstance(v, basestring):
+                return v
+            return unicode(v)
+        except Exception:
+            try:
+                return str(v)
+            except Exception:
+                return u""
+
+    def _safe_url_decode(self, text):
+        """urlDecode that never returns None; falls back to the raw text."""
+        text = self._s(text)
+        if not text:
+            return u""
+        try:
+            decoded = self._helpers.urlDecode(text)
+        except Exception:
+            decoded = None
+        return self._s(decoded) if decoded is not None else text
+
+    def _is_json_like(self, text):
+        s = self._s(text).strip()
+        return s[:1] in (u"{", u"[")
 
     # ---------- File selection ----------
 
@@ -118,69 +148,61 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
 
                 request_bytes = message.getRequest()
 
-                url = request_info.getUrl().toString()
-                method = request_info.getMethod()
+                url = self._s(request_info.getUrl().toString())
+                method = self._s(request_info.getMethod())
 
-                # Extract Request Headers (REQ) and Request Body (REQ-DATA) by
-                # slicing the raw byte array at the body offset, same as the
-                # response side, to keep the header/body split byte-accurate.
+                # Split raw request bytes at the body offset (byte-accurate).
                 req_body_offset = request_info.getBodyOffset()
 
                 req_header_bytes = request_bytes[0:req_body_offset]
                 req_body_bytes = request_bytes[req_body_offset:]
 
-                req_headers_str = self._helpers.bytesToString(req_header_bytes).strip()
+                req_headers_str = self._s(self._helpers.bytesToString(req_header_bytes)).strip()
 
                 host_match = re.search(r'Host:\s*([^\r\n]+)', req_headers_str, re.IGNORECASE)
-                domain = host_match.group(1).strip() if host_match else "Unknown_Domain"
+                domain = self._s(host_match.group(1)).strip() if host_match else u"Unknown_Domain"
 
-                req_data = ""
+                req_data = u""
                 if len(req_body_bytes) > 0:
-                    req_data = self._helpers.bytesToString(req_body_bytes).strip()
+                    req_data = self._s(self._helpers.bytesToString(req_body_bytes)).strip()
 
                 # REQ shows the full raw request: headers + original (raw) body
                 if req_data:
-                    request_str = req_headers_str + "\r\n\r\n" + req_data
+                    request_str = req_headers_str + u"\r\n\r\n" + req_data
                 else:
                     request_str = req_headers_str
 
-                # URL Decode REQ-DATA using Burp's native API
-                req_data_decoded = self._helpers.urlDecode(req_data) if req_data else ""
+                # URL Decode REQ-DATA (safe: never None)
+                req_data_decoded = self._safe_url_decode(req_data)
 
-                status_code = "N/A"
-                res_headers_only = ""
-                res_data_decoded = ""
+                status_code = u"N/A"
+                res_headers_only = u""
+                res_data_decoded = u""
                 response_bytes = message.getResponse()
 
                 if response_bytes:
                     response_info = self._helpers.analyzeResponse(response_bytes)
-                    status_code = str(response_info.getStatusCode())
+                    status_code = self._s(response_info.getStatusCode())
 
-                    # Extract Response Headers (RES) and Response Body (RES-DATA).
-                    # IMPORTANT: slice the RAW BYTE ARRAY at the body offset first,
-                    # then stringify each piece separately. Slicing the already
-                    # stringified response can misalign with the byte offset
-                    # (binary/compressed bodies, encoding quirks), which is what
-                    # was letting body/HTML content leak into the RES section.
+                    # Slice the RAW BYTE ARRAY at the body offset first,
+                    # then stringify each piece separately.
                     res_body_offset = response_info.getBodyOffset()
 
                     header_bytes = response_bytes[0:res_body_offset]
                     body_bytes = response_bytes[res_body_offset:]
 
-                    res_headers_only = self._helpers.bytesToString(header_bytes).strip()
+                    res_headers_only = self._s(self._helpers.bytesToString(header_bytes)).strip()
 
-                    res_data = ""
+                    res_data = u""
                     if len(body_bytes) > 0:
-                        res_data = self._helpers.bytesToString(body_bytes).strip()
+                        res_data = self._s(self._helpers.bytesToString(body_bytes)).strip()
 
-                    # If the response body is longer than 100 lines, skip it
-                    # entirely and leave RES-DATA empty (too big to be useful
-                    # in the markdown notes).
-                    if res_data and res_data.count("\n") + 1 > 100:
-                        res_data = ""
+                    # If the response body is longer than 100 lines, skip it.
+                    if res_data and res_data.count(u"\n") + 1 > 100:
+                        res_data = u""
 
-                    # URL Decode RES-DATA using Burp's native API
-                    res_data_decoded = self._helpers.urlDecode(res_data) if res_data else ""
+                    # URL Decode RES-DATA (safe: never None)
+                    res_data_decoded = self._safe_url_decode(res_data)
 
                 self._request_counter += 1
 
@@ -195,7 +217,7 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                         seen.add(name)
                         all_params.append(name)
 
-                # ---- NEW: name=value pairs (request + response) ----
+                # name=value pairs (request + response)
                 req_param_values = self.extract_request_parameter_values(request_info, req_data_decoded)
                 res_param_values = self.extract_response_parameter_values(res_data_decoded)
 
@@ -207,20 +229,25 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
                         seen_values.add(key)
                         all_param_values.append((name, value))
 
-                md_content = self.build_markdown(self._request_counter, domain, url, method, status_code, request_str, req_data_decoded, res_headers_only, res_data_decoded, all_params, all_param_values)
+                md_content = self.build_markdown(
+                    self._request_counter, domain, url, method, status_code,
+                    request_str, req_data_decoded, res_headers_only,
+                    res_data_decoded, all_params, all_param_values
+                )
                 self.append_to_file(output_path, md_content)
             except Exception as e:
                 print("Error processing request: " + str(e))
+                print(traceback.format_exc())
+
+    # ---------- JSON helpers ----------
 
     def extract_json_keys(self, text):
         """
         Best-effort extraction of JSON property names from a text blob.
-        Uses Jython's json module when the text parses as valid JSON
-        (covers nested objects/arrays), and falls back to a regex scan
-        for "key": patterns when it doesn't (partial/invalid JSON,
-        JS-ish bodies, etc).
+        Falls back to a regex scan when the text isn't valid JSON.
         """
         names = []
+        text = self._s(text)
 
         try:
             import json
@@ -231,47 +258,42 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         except Exception:
             pass
 
-        # Fallback: regex scan for "key": occurrences
         for m in re.finditer(r'"([A-Za-z0-9_\-\.\[\]]+)"\s*:', text):
-            names.append(m.group(1))
+            names.append(self._s(m.group(1)))
 
         return names
 
     def _walk_json_keys(self, node, names):
         if isinstance(node, dict):
             for k, v in node.items():
-                names.append(k)
+                names.append(self._s(k))
                 self._walk_json_keys(v, names)
         elif isinstance(node, list):
             for item in node:
                 self._walk_json_keys(item, names)
 
-    # ---------- NEW: JSON key/value extraction ----------
-
     def extract_json_key_values(self, text):
         """
         Best-effort extraction of (key, value) pairs from a JSON text blob.
         Nested keys use dotted/bracket paths (e.g. "user.address.city",
-        "items[0].id") so values stay traceable to their location.
-        Falls back to a regex scan of "key": value pairs when the text
-        doesn't parse as valid JSON.
+        "items[0].id"). Falls back to regex when the text isn't valid JSON.
         """
         pairs = []
+        text = self._s(text)
 
         try:
             import json
             parsed = json.loads(text)
-            self._walk_json_key_values(parsed, "", pairs)
+            self._walk_json_key_values(parsed, u"", pairs)
             if pairs:
                 return pairs
         except Exception:
             pass
 
-        # Fallback: regex scan for "key": "value" or "key": value occurrences
         for m in re.finditer(r'"([A-Za-z0-9_\-\.\[\]]+)"\s*:\s*("(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null)', text):
-            key = m.group(1)
-            raw_value = m.group(2)
-            if raw_value.startswith('"') and raw_value.endswith('"'):
+            key = self._s(m.group(1))
+            raw_value = self._s(m.group(2))
+            if len(raw_value) >= 2 and raw_value[0] == '"' and raw_value[-1] == '"':
                 raw_value = raw_value[1:-1]
             pairs.append((key, raw_value))
 
@@ -280,97 +302,85 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
     def _walk_json_key_values(self, node, path, pairs):
         if isinstance(node, dict):
             for k, v in node.items():
-                new_path = (path + "." + str(k)) if path else str(k)
+                new_path = (path + u"." + self._s(k)) if path else self._s(k)
                 self._walk_json_key_values(v, new_path, pairs)
         elif isinstance(node, list):
             for idx, item in enumerate(node):
-                new_path = "%s[%d]" % (path, idx)
+                new_path = u"%s[%d]" % (path, idx)
                 self._walk_json_key_values(item, new_path, pairs)
         else:
-            # Leaf value (string, number, bool, None)
             pairs.append((path, self._stringify_leaf(node)))
 
     def _stringify_leaf(self, value):
         if value is None:
-            return "null"
+            return u"null"
         if isinstance(value, bool):
-            return "true" if value else "false"
-        return str(value)
+            return u"true" if value else u"false"
+        return self._s(value)
+
+    # ---------- Parameter name extraction ----------
 
     def extract_request_parameters(self, request_info, req_data_decoded):
         """
-        Collects parameter/property names found in:
-        - the URL query string
-        - the request body (form-encoded, multipart, or JSON)
+        Collects parameter/property names from the URL query string
+        and the request body (form-encoded, multipart, or JSON).
         """
         names = []
 
         try:
             for param in request_info.getParameters():
-                names.append(str(param.getName()))
+                names.append(self._s(param.getName()))
         except Exception as e:
             print("Error reading request parameters: " + str(e))
 
-        # Catch JSON bodies that Burp's parameter parser may not fully expand
-        # (nested objects/arrays), by scanning the raw decoded body too.
-        if req_data_decoded:
-            stripped = req_data_decoded.strip()
-            if stripped.startswith("{") or stripped.startswith("["):
-                names.extend(self.extract_json_keys(req_data_decoded))
+        if self._is_json_like(req_data_decoded):
+            names.extend(self.extract_json_keys(req_data_decoded))
 
         return names
 
     def extract_response_parameters(self, res_data_decoded):
         """
-        Collects property names found in the response body (JSON keys,
-        or key=value style fields).
+        Collects property names found in the response body
+        (JSON keys, or key=value style fields).
         """
         names = []
 
         if not res_data_decoded:
             return names
 
-        stripped = res_data_decoded.strip()
-        if stripped.startswith("{") or stripped.startswith("["):
+        if self._is_json_like(res_data_decoded):
             names.extend(self.extract_json_keys(res_data_decoded))
         else:
-            # key=value style bodies (e.g. form-encoded-ish responses)
-            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=', res_data_decoded):
-                names.append(m.group(1))
+            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=', self._s(res_data_decoded)):
+                names.append(self._s(m.group(1)))
 
         return names
 
-    # ---------- NEW: parameter VALUE extraction (request + response) ----------
+    # ---------- Parameter VALUE extraction ----------
 
     def extract_request_parameter_values(self, request_info, req_data_decoded):
         """
-        Collects (name, value) pairs found in:
-        - the URL query string / form params (via Burp's own parser)
-        - the request body when it's JSON (dotted-path keys)
+        Collects (name, value) pairs from query/form params (Burp's parser)
+        and from a JSON body (dotted-path keys).
         """
         pairs = []
 
         try:
             for param in request_info.getParameters():
-                name = str(param.getName())
-                try:
-                    value = self._helpers.urlDecode(str(param.getValue()))
-                except Exception:
-                    value = str(param.getValue())
+                name = self._s(param.getName())
+                value = self._safe_url_decode(param.getValue())
                 pairs.append((name, value))
         except Exception as e:
             print("Error reading request parameter values: " + str(e))
 
-        if req_data_decoded:
-            stripped = req_data_decoded.strip()
-            if stripped.startswith("{") or stripped.startswith("["):
-                pairs.extend(self.extract_json_key_values(req_data_decoded))
+        if self._is_json_like(req_data_decoded):
+            pairs.extend(self.extract_json_key_values(req_data_decoded))
 
         return pairs
 
     def extract_response_parameter_values(self, res_data_decoded):
         """
-        Collects (name, value) pairs found in the response body
+        Collects (name, value) pairs from the response body
         (JSON key/value pairs, or key=value style fields).
         """
         pairs = []
@@ -378,18 +388,27 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         if not res_data_decoded:
             return pairs
 
-        stripped = res_data_decoded.strip()
-        if stripped.startswith("{") or stripped.startswith("["):
+        if self._is_json_like(res_data_decoded):
             pairs.extend(self.extract_json_key_values(res_data_decoded))
         else:
-            # key=value style bodies (e.g. form-encoded-ish responses)
-            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=\s*([^&\s]*)', res_data_decoded):
-                pairs.append((m.group(1), m.group(2)))
+            for m in re.finditer(r'([A-Za-z0-9_\-\.]+)\s*=\s*([^&\s]*)', self._s(res_data_decoded)):
+                pairs.append((self._s(m.group(1)), self._s(m.group(2))))
 
         return pairs
 
+    # ---------- Markdown ----------
+
     def build_markdown(self, request_number, domain, url, method, status, req, req_data, res, res_data, parameters, parameter_values):
-        template = """
+        domain = self._s(domain)
+        url = self._s(url)
+        method = self._s(method)
+        status = self._s(status)
+        req = self._s(req)
+        req_data = self._s(req_data)
+        res = self._s(res)
+        res_data = self._s(res_data)
+
+        template = u"""
 ***
 ### [DOMAIN_PLACEHOLDER] Page:
 ### Request: REQUEST_NUMBER_PLACEHOLDER
@@ -427,27 +446,28 @@ PARAMETER_VALUES_PLACEHOLDER
 ```
 ***
 """
-        template = template.replace("REQUEST_NUMBER_PLACEHOLDER", str(request_number))
-        template = template.replace("DOMAIN_PLACEHOLDER", domain)
-        template = template.replace("URL_PLACEHOLDER", url)
-        template = template.replace("METHOD_PLACEHOLDER", method)
-        template = template.replace("STATUS_PLACEHOLDER", status)
-        template = template.replace("REQ_PLACEHOLDER", req)
-        template = template.replace("REQ_DATA_PLACEHOLDER", req_data)
-        template = template.replace("RES_PLACEHOLDER", res)
-        template = template.replace("RES_DATA_PLACEHOLDER", res_data)
-        parameters_str = ", ".join(parameters) if parameters else "(none found)"
-        template = template.replace("PARAMETERS_PLACEHOLDER", parameters_str)
+        template = template.replace(u"REQUEST_NUMBER_PLACEHOLDER", self._s(request_number))
+        template = template.replace(u"DOMAIN_PLACEHOLDER", domain)
+        template = template.replace(u"URL_PLACEHOLDER", url)
+        template = template.replace(u"METHOD_PLACEHOLDER", method)
+        template = template.replace(u"STATUS_PLACEHOLDER", status)
+        template = template.replace(u"REQ_PLACEHOLDER", req)
+        template = template.replace(u"REQ_DATA_PLACEHOLDER", req_data)
+        template = template.replace(u"RES_PLACEHOLDER", res)
+        template = template.replace(u"RES_DATA_PLACEHOLDER", res_data)
+
+        parameters_str = u", ".join([self._s(p) for p in parameters]) if parameters else u"(none found)"
+        template = template.replace(u"PARAMETERS_PLACEHOLDER", parameters_str)
 
         if parameter_values:
-            separator = "#-------------------------------------"
+            separator = u"#-------------------------------------"
             values_lines = []
             for name, value in parameter_values:
-                values_lines.append("%s = %s" % (name, value))
-            parameter_values_str = ("\n" + separator + "\n").join(values_lines)
+                values_lines.append(u"%s = %s" % (self._s(name), self._s(value)))
+            parameter_values_str = (u"\n" + separator + u"\n").join(values_lines)
         else:
-            parameter_values_str = "(none found)"
-        template = template.replace("PARAMETER_VALUES_PLACEHOLDER", parameter_values_str)
+            parameter_values_str = u"(none found)"
+        template = template.replace(u"PARAMETER_VALUES_PLACEHOLDER", parameter_values_str)
 
         return template
 
@@ -462,7 +482,6 @@ PARAMETER_VALUES_PLACEHOLDER
             if parent and not parent.exists():
                 parent.mkdirs()
 
-            # append=True -> keeps adding to the same file across multiple exports
             fos = FileOutputStream(f, True)
             osw = OutputStreamWriter(fos, "UTF-8")
             osw.write(content)
@@ -472,6 +491,7 @@ PARAMETER_VALUES_PLACEHOLDER
             print("SUCCESS: Markdown appended to: " + file_path)
         except Exception as e:
             print("ERROR saving file => " + str(e))
+            print(traceback.format_exc())
 
 
 class MenuActionListener(ActionListener):
