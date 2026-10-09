@@ -4,20 +4,22 @@
 # ------------------------------------------------------------------
 # Fully NON-INTERACTIVE: give the XML file(s), get the diff note. Done.
 #
-# * Diff logic, note format, config values and output-file behaviour
-#   are UNCHANGED from the original Burp extension.
-# * Input : one or more Burp Suite XML exports ("Save selected items").
-# * Default: every consecutive pair of items is compared (1-2, 2-3, ...).
-#   Items are numbered globally across all given files, so two files
-#   with one request each are simply compared as file1 vs file2.
-# * Use --pairs A,B to compare specific items instead. Never prompts.
+# * Compares 2 OR MORE requests by URL + Body (headers/cookies ignored)
+#   and appends an Obsidian-friendly diff note to a .md file.
+# * Multi-file input: each file = one side of the comparison.
+#   Sides are auto-labelled: User A, User B, User C, User D, ... (AA, AB, ...).
+# * --pairs A,B,C,... accepts any number of items (N-way diff).
+# * --nway: compare ALL loaded items in a single N-way diff.
 #
 # Usage:
-#   python Diff-checker.py a.xml b.xml               # a vs b
-#   python Diff-checker.py export.xml                # all consecutive pairs
+#   python Diff-checker.py a.xml b.xml                 # a vs b (User A/B)
+#   python Diff-checker.py a.xml b.xml c.xml d.xml     # 4-way diff (User A..D)
+#   python Diff-checker.py export.xml                  # consecutive pairs (1-2, 2-3, ...)
+#   python Diff-checker.py export.xml --nway           # ALL items in one N-way diff
 #   python Diff-checker.py export.xml --pairs 1,3
-#   python Diff-checker.py export.xml --pairs 1,2 4,5
-#   python Diff-checker.py export.xml --list         # show items and exit
+#   python Diff-checker.py export.xml --pairs 1,2,3    # 3-way diff
+#   python Diff-checker.py export.xml --pairs 1,2 4,5  # repeatable
+#   python Diff-checker.py export.xml --list
 # ------------------------------------------------------------------
 
 import argparse
@@ -50,6 +52,16 @@ BODY_SKIP_LINES = 15   # raw (non-JSON) body longer than this -> skip
 # -----------------------------------------------------------------------
 
 
+def _col_name(i):
+    """0->A, 1->B, ..., 25->Z, 26->AA, 27->AB, ..."""
+    name = ""
+    i += 1
+    while i > 0:
+        i, r = divmod(i - 1, 26)
+        name = chr(65 + r) + name
+    return name
+
+
 class _URL(object):
     """Minimal stand-in for java.net.URL (only what _extract needs)."""
     def __init__(self, host, path, query):
@@ -64,9 +76,20 @@ class ReqDiffCLI(object):
     _ABSENT = object()  # sentinel: key missing on one side
 
     # ---------------------------------------------------- lifecycle
-    def __init__(self, output=None):
+    def __init__(self, output=None, labels=None):
         self._output = output or OUTPUT_FILE or os.path.join(
             os.path.expanduser("~"), "Desktop\\burp-diffs.md")
+        self._labels = labels or []   # optional per-side label overrides
+
+    def _side_label(self, i):
+        """User A, User B, User C, ... (with optional overrides)."""
+        if i < len(self._labels) and self._labels[i]:
+            return self._labels[i]
+        if i == 0:
+            return LABEL_A
+        if i == 1:
+            return LABEL_B
+        return u"User " + _col_name(i)
 
     # ---------------------------------------------------- XML input
     def _load_xml(self, path):
@@ -88,6 +111,7 @@ class ReqDiffCLI(object):
                 resp = None
             items.append({
                 "file":     os.path.basename(path),
+                "src":      path,
                 "host":     (el.findtext("host") or "").strip(),
                 "method":   (el.findtext("method") or "").strip(),
                 "url":      (el.findtext("url") or "").strip(),
@@ -122,35 +146,42 @@ class ReqDiffCLI(object):
             print("  %3d. [%s] %-6s %s" % (i, it["file"], it["method"], tgt))
 
     def _parse_pairs_arg(self, specs, n):
-        pairs, ok = [], True
+        """Each spec: 2+ comma-separated numbers -> one (N-way) comparison."""
+        groups, ok = [], True
         for spec in specs:
             parts = [p.strip() for p in spec.split(",") if p.strip()]
-            if len(parts) != 2:
-                print("[ReqDiff] ERROR: bad pair spec '%s' (use A,B e.g. 1,2)" % spec)
+            if len(parts) < 2:
+                print("[ReqDiff] ERROR: bad spec '%s' (need at least 2 numbers, "
+                      "e.g. 1,2 or 1,2,3)" % spec)
                 ok = False
                 continue
             try:
-                a, b = int(parts[0]), int(parts[1])
+                idxs = [int(x) for x in parts]
             except ValueError:
-                print("[ReqDiff] ERROR: bad pair spec '%s' (numbers only)" % spec)
+                print("[ReqDiff] ERROR: bad spec '%s' (numbers only)" % spec)
                 ok = False
                 continue
-            if a == b or not (1 <= a <= n) or not (1 <= b <= n):
-                print("[ReqDiff] ERROR: pair '%s' out of range (1..%d) or equal" % (spec, n))
+            if len(set(idxs)) != len(idxs):
+                print("[ReqDiff] ERROR: spec '%s' has duplicate numbers" % spec)
                 ok = False
                 continue
-            pairs.append((a - 1, b - 1))
-        return pairs if ok else None
+            if any(not (1 <= x <= n) for x in idxs):
+                print("[ReqDiff] ERROR: spec '%s' out of range (1..%d)" % (spec, n))
+                ok = False
+                continue
+            groups.append([x - 1 for x in idxs])
+        return groups if ok else None
 
     # ---------------------------------------------------- main flow
-    def _compare(self, msgA, msgB):
+    def _compare_multi(self, msgs):
+        """Compare 2..N requests in one note."""
         try:
-            A = self._extract(msgA)
-            B = self._extract(msgB)
-            note, has_diff = self._build_note(A, B)
+            sides = [self._extract(m) for m in msgs]
+            labels = [self._side_label(i) for i in range(len(sides))]
+            note, has_diff = self._build_note(sides, labels)
             if not has_diff:
-                print("[ReqDiff] #%s vs #%s: URL & Body are identical. Nothing saved."
-                      % (msgA.get("num", "?"), msgB.get("num", "?")))
+                print("[ReqDiff] %s: URL & Body are identical. Nothing saved."
+                      % " vs ".join("#" + m.get("num", "?") for m in msgs))
                 return
             self._append(note)
             print("[ReqDiff] saved -> %s" % self._output)
@@ -195,7 +226,6 @@ class ReqDiffCLI(object):
         }
 
     # ---------------------------------------------------- raw HTTP parsing
-    # (replaces self._helpers.analyzeRequest / analyzeResponse)
     def _split_http(self, raw):
         i = raw.find("\r\n\r\n")
         j = raw.find("\n\n")
@@ -222,8 +252,9 @@ class ReqDiffCLI(object):
         return {"method": method, "path": path, "query": query,
                 "headers": lines, "body": body}
 
-    # ---------------------------------------------------- note builder
-    def _build_note(self, A, B):
+    # ---------------------------------------------------- note builder (N-way)
+    def _build_note(self, sides, labels):
+        n = len(sides)
         L = []
         has_diff = False
 
@@ -232,50 +263,58 @@ class ReqDiffCLI(object):
         L.append(u"#### ReqDiff | %s" % time.strftime("%Y-%m-%d %H:%M"))
 
         # ---------- REQ-ENDPOINT ----------
-        same_ep = (A["method"] == B["method"] and A["path"] == B["path"])
-        if same_ep:
-            q = ("?" + A["query"]) if (A["query"] and A["query"] == B["query"]) else ""
-            L.append("**REQ-ENDPOINT**: `%s` %s%s" % (A["method"], A["path"], q))
+        eps = set((s["method"], s["path"]) for s in sides)
+        if len(eps) == 1:
+            qs = set(s["query"] for s in sides)
+            q = ("?" + sides[0]["query"]) if (sides[0]["query"] and len(qs) == 1) else ""
+            L.append("**REQ-ENDPOINT**: `%s` %s%s" % (sides[0]["method"], sides[0]["path"], q))
         else:
             L.append("**REQ-ENDPOINT**:")
-            L.append("- %s: `%s %s%s`" % (LABEL_A, A["method"], A["path"],
-                                          ("?" + A["query"]) if A["query"] else ""))
-            L.append("- %s: `%s %s%s`" % (LABEL_B, B["method"], B["path"],
-                                          ("?" + B["query"]) if B["query"] else ""))
+            for s, lab in zip(sides, labels):
+                L.append("- %s: `%s %s%s`" % (lab, s["method"], s["path"],
+                                              ("?" + s["query"]) if s["query"] else ""))
             has_diff = True
 
-        if A["host"] != B["host"]:
-            L.append("- host %s: `%s` | host %s: `%s`" % (LABEL_A, A["host"], LABEL_B, B["host"]))
+        hosts = set(s["host"] for s in sides)
+        if len(hosts) > 1:
+            if n == 2:  # keep the original 2-way line format
+                L.append("- host %s: `%s` | host %s: `%s`"
+                         % (labels[0], sides[0]["host"], labels[1], sides[1]["host"]))
+            else:
+                groups = {}
+                for s, lab in zip(sides, labels):
+                    groups.setdefault(s["host"], []).append(lab)
+                L.append("- hosts: " + " | ".join(
+                    "`%s` (%s)" % (h, ", ".join(labs)) for h, labs in groups.items()))
             has_diff = True
 
         # ---------- DATAS (query params + body) ----------
-        url_diffs = self._diff_maps(self._parse_query(A["query"]),
-                                    self._parse_query(B["query"]))
-        pa = self._parse_body(A["body"], A["ctype"])
-        pb = self._parse_body(B["body"], B["ctype"])
-
+        parsed = [self._parse_body(s["body"], s["ctype"]) for s in sides]
         datas = None
-        if pa is not None and pb is not None:
-            body_diffs = self._diff_maps(pa, pb)
-            body_keys = set(k for k, _, _ in body_diffs)
+        if all(p is not None for p in parsed):
+            body_diffs = self._diff_maps_n(parsed)
+            url_diffs = self._diff_maps_n([self._parse_query(s["query"]) for s in sides])
+            body_keys = set(k for k, _v in body_diffs)
             merged = []
-            for k, va, vb in url_diffs:
-                merged.append(("url." + k if k in body_keys else k, va, vb))
+            for k, vals in url_diffs:
+                merged.append(("url." + k if k in body_keys else k, vals))
             merged += body_diffs
             if merged:
-                datas = self._kv_block(merged, "**DATAS-ENDPOINT**:")
+                datas = self._kv_block_n(merged, labels, "**DATAS-ENDPOINT**:")
         else:
             # unparseable body (XML / multipart / plain text) -> raw line diff
-            if A["body"] != B["body"]:
-                la = len(A["body"].splitlines())
-                lb = len(B["body"].splitlines())
-                if la > BODY_SKIP_LINES or lb > BODY_SKIP_LINES:
+            bodies = [s["body"] for s in sides]
+            if any(b != bodies[0] for b in bodies[1:]):
+                if any(len(b.splitlines()) > BODY_SKIP_LINES for b in bodies):
                     datas = ["**DATAS-ENDPOINT**: skipped (body > %d lines, not JSON/urlencoded)"
                              % BODY_SKIP_LINES]
                 else:
-                    entries = self._line_diff(A["body"], B["body"], MAX_DIFF_LINES)
+                    entries = self._line_diff_n(bodies, MAX_DIFF_LINES)
                     if entries:
-                        datas = self._raw_block(entries, "**DATAS-ENDPOINT**")
+                        grouped = [[] for _ in sides]
+                        for i, t in entries:
+                            grouped[i].append(t)
+                        datas = self._raw_block_n(grouped, labels, "**DATAS-ENDPOINT**")
 
         if datas is not None:
             L += datas
@@ -284,7 +323,7 @@ class ReqDiffCLI(object):
             L.append("**DATAS-ENDPOINT**: (identical)")
 
         # ---------- RESPONSE ----------
-        rl, r_diff = self._resp_section(A, B)
+        rl, r_diff = self._resp_section(sides, labels)
         L += rl
         if r_diff:
             has_diff = True
@@ -292,47 +331,52 @@ class ReqDiffCLI(object):
         L.append("")
         return "\n".join(L) + "\n", has_diff
 
-    def _resp_section(self, A, B):
-        ra, rb = A["resp"], B["resp"]
-        if ra is None and rb is None:
+    def _resp_section(self, sides, labels):
+        resps = [s["resp"] for s in sides]
+        n = len(sides)
+        if all(r is None for r in resps):
             return [], False
-        if ra is None or rb is None:
-            return ["**RESPONSE**: (response not recorded on one side - skipped)"], False
+        if any(r is None for r in resps):
+            if n == 2:  # keep the original wording for 2-way
+                return ["**RESPONSE**: (response not recorded on one side - skipped)"], False
+            return ["**RESPONSE**: (response not recorded on one or more sides - skipped)"], False
 
-        fa = self._try_json_flat(ra)
-        fb = self._try_json_flat(rb)
-        if fa is not None and fb is not None:
-            diffs = self._diff_maps(fa, fb)[:MAX_DIFF_LINES]
+        flats = [self._try_json_flat(r) for r in resps]
+        if all(f is not None for f in flats):
+            diffs = self._diff_maps_n(flats)[:MAX_DIFF_LINES]
             if not diffs:
                 return ["**RESPONSE**: (identical)"], False
-            return self._kv_block(diffs, "**RESPONSE-DIFF** (max %d lines)" % MAX_DIFF_LINES), True
+            return self._kv_block_n(diffs, labels,
+                                    "**RESPONSE-DIFF** (max %d lines)" % MAX_DIFF_LINES), True
 
         # non-JSON: apply the 10/15-lines rule to avoid dumping HTML
-        if len(ra.splitlines()) > RESP_SKIP_LINES or len(rb.splitlines()) > RESP_SKIP_LINES:
+        if any(len(r.splitlines()) > RESP_SKIP_LINES for r in resps):
             return ["**RESPONSE**: skipped (> %d lines - probably HTML)" % RESP_SKIP_LINES], False
-        entries = self._line_diff(ra, rb, MAX_DIFF_LINES)
+        entries = self._line_diff_n(resps, MAX_DIFF_LINES)
         if not entries:
             return ["**RESPONSE**: (identical)"], False
-        return self._raw_block(entries, "**RESPONSE-DIFF** (first %d lines)" % MAX_DIFF_LINES), True
+        grouped = [[] for _ in sides]
+        for i, t in entries:
+            grouped[i].append(t)
+        return self._raw_block_n(grouped, labels,
+                                 "**RESPONSE-DIFF** (first %d lines)" % MAX_DIFF_LINES), True
 
-    # ---------------------------------------------------- output blocks
-    def _kv_block(self, diffs, header):
-        lines = [header, "```json", "// %s:" % LABEL_A]
-        for k, va, _vb in diffs:
-            lines.append(u"\t%s: %s" % (json.dumps(self._u(k), ensure_ascii=False),
-                                        self._fmt_val(va)))
-        lines.append("// %s:" % LABEL_B)
-        for k, _va, vb in diffs:
-            lines.append(u"\t%s: %s" % (json.dumps(self._u(k), ensure_ascii=False),
-                                        self._fmt_val(vb)))
+    # ---------------------------------------------------- output blocks (N-way)
+    def _kv_block_n(self, diffs, labels, header):
+        lines = [header, "```json"]
+        for i, lab in enumerate(labels):
+            lines.append("// %s:" % lab)
+            for k, vals in diffs:
+                lines.append(u"\t%s: %s" % (json.dumps(self._u(k), ensure_ascii=False),
+                                            self._fmt_val(vals[i])))
         lines.append("```")
         return lines
 
-    def _raw_block(self, entries, header):
-        lines = [header, "```json", "// %s:" % LABEL_A]
-        lines += [u"\t" + t for s, t in entries if s == "A"]
-        lines.append("// %s:" % LABEL_B)
-        lines += [u"\t" + t for s, t in entries if s == "B"]
+    def _raw_block_n(self, grouped, labels, header):
+        lines = [header, "```json"]
+        for i, lab in enumerate(labels):
+            lines.append("// %s:" % lab)
+            lines += [u"\t" + t for t in grouped[i]]
         lines.append("```")
         return lines
 
@@ -417,13 +461,17 @@ class ReqDiffCLI(object):
         return flat
 
     # ---------------------------------------------------- diff helpers
-    def _diff_maps(self, da, db):
+    def _diff_maps_n(self, dicts):
+        """Keys where the values are NOT identical across ALL sides."""
+        keys = set()
+        for d in dicts:
+            keys.update(d.keys())
         out = []
-        for k in sorted(set(da.keys()) | set(db.keys()), key=self._u):
-            va = da.get(k, self._ABSENT)
-            vb = db.get(k, self._ABSENT)
-            if va != vb:
-                out.append((k, va, vb))
+        for k in sorted(keys, key=self._u):
+            vals = [d.get(k, self._ABSENT) for d in dicts]
+            first = vals[0]
+            if any(v != first for v in vals[1:]):
+                out.append((k, vals))
         return out
 
     def _fmt_val(self, v):
@@ -437,11 +485,20 @@ class ReqDiffCLI(object):
             return unicode(v)
         return json.dumps(self._u(v), ensure_ascii=False)
 
-    def _line_diff(self, sa, sb, cap):
-        a = [l for l in sa.replace("\r\n", "\n").split("\n") if l.strip()]
-        b = [l for l in sb.replace("\r\n", "\n").split("\n") if l.strip()]
-        out = [("A", l) for l in a if l not in b]
-        out += [("B", l) for l in b if l not in a]
+    def _line_diff_n(self, texts, cap):
+        """Per side: lines that do not appear in ANY other side."""
+        split = []
+        for t in texts:
+            split.append([l for l in t.replace("\r\n", "\n").split("\n") if l.strip()])
+        out = []
+        for i in range(len(split)):
+            others = set()
+            for j, ls in enumerate(split):
+                if j != i:
+                    others.update(ls)
+            for l in split[i]:
+                if l not in others:
+                    out.append((i, l))
         return out[:cap]
 
     # ---------------------------------------------------- file writer
@@ -462,25 +519,30 @@ def main(argv=None):
 
     p = argparse.ArgumentParser(
         prog="Diff-checker",
-        description="Non-interactive CLI: compares requests (URL + body) taken "
-                    "from Burp Suite XML exports and appends an Obsidian-friendly "
+        description="Non-interactive CLI: compares 2 OR MORE requests (URL + body) "
+                    "taken from Burp Suite XML exports and appends an Obsidian-friendly "
                     "diff note to a .md file. Never prompts.")
     p.add_argument("xml", nargs="+",
-                   help="one or more Burp Suite XML export files ('Save selected items')")
+                   help="one or more Burp Suite XML export files ('Save selected items'); "
+                        "multiple files = one N-way comparison (User A, User B, User C, ...)")
     p.add_argument("-o", "--output", default=None,
                    help="output .md file (default: ~/Desktop/burp-diffs.md)")
-    p.add_argument("--pairs", nargs="+", metavar="A,B", default=None,
-                   help="compare item A with item B (1-based, global numbering "
-                        "across all files); repeatable: --pairs 1,2 3,4")
+    p.add_argument("--pairs", nargs="+", metavar="A,B[,C...]", default=None,
+                   help="compare the given items together (1-based, global numbering); "
+                        "any count >= 2 allowed for N-way: --pairs 1,2,3; repeatable")
     p.add_argument("--all", action="store_true",
-                   help="compare every consecutive pair (1-2, 2-3, ...) - this "
-                        "is already the default, kept for explicitness")
+                   help="compare consecutive 2-way pairs (1-2, 2-3, ...) instead of "
+                        "the multi-file N-way default")
+    p.add_argument("--nway", action="store_true",
+                   help="compare ALL loaded items in a single N-way diff")
     p.add_argument("--list", action="store_true",
                    help="just list loaded items (with their numbers) and exit")
     p.add_argument("--label-a", default=None,
                    help="override LABEL_A (default: %s)" % LABEL_A)
     p.add_argument("--label-b", default=None,
                    help="override LABEL_B (default: %s)" % LABEL_B)
+    p.add_argument("--labels", default=None,
+                   help="comma-separated side labels for N-way, e.g. 'Admin,Guest,Service'")
     args = p.parse_args(argv)
 
     if args.label_a:
@@ -488,7 +550,11 @@ def main(argv=None):
     if args.label_b:
         LABEL_B = args.label_b
 
-    tool = ReqDiffCLI(output=args.output)
+    labels_override = None
+    if args.labels:
+        labels_override = [x.strip() for x in args.labels.split(",") if x.strip()]
+
+    tool = ReqDiffCLI(output=args.output, labels=labels_override)
     print("[ReqDiff] output file: %s" % tool._output)
 
     items = []
@@ -499,6 +565,7 @@ def main(argv=None):
         return 1
 
     for i, it in enumerate(items):
+        it["idx"] = i
         it["num"] = str(i + 1)
 
     if args.list:
@@ -506,23 +573,54 @@ def main(argv=None):
         return 0
 
     n = len(items)
+    comparisons = None
+
     if args.pairs:
-        pairs = tool._parse_pairs_arg(args.pairs, n)
-        if pairs is None:
+        comparisons = tool._parse_pairs_arg(args.pairs, n)
+        if comparisons is None:
             return 1
-    else:
-        # DEFAULT (also covers --all): consecutive pairs across all files,
-        # so "a.xml b.xml" simply compares a vs b.
+    elif args.nway:
+        if n < 2:
+            print("[ReqDiff] --nway needs at least 2 loaded items.")
+            return 1
+        comparisons = [list(range(n))]
+    elif len(args.xml) >= 2:
+        # DEFAULT for multiple files: one N-way comparison, each file = one side
+        # (item #1 of every file). Labels: User A, User B, User C, ...
+        order, groups = [], {}
+        for it in items:
+            if it["src"] not in groups:
+                order.append(it["src"])
+                groups[it["src"]] = []
+            groups[it["src"]].append(it)
+        if len(order) >= 2:
+            sides = []
+            for pth in order:
+                g = groups[pth]
+                if len(g) > 1:
+                    print("[ReqDiff] note: %s has %d items - using item #%s"
+                          % (pth, len(g), g[0]["num"]))
+                sides.append(g[0])
+            comparisons = [[s["idx"] for s in sides]]
+            print("[ReqDiff] file comparison: " + " | ".join(
+                "%s = %s (#%s)" % (tool._side_label(i), items[s["idx"]]["src"], s["num"])
+                for i, s in enumerate(sides)))
+        # else: effectively one usable file -> fall through to consecutive pairs
+
+    if comparisons is None:
+        # single file (or --all): consecutive 2-way pairs
         if n < 2:
             print("[ReqDiff] only %d item(s) loaded - need at least 2 to compare." % n)
             return 1
-        pairs = [(i, i + 1) for i in range(n - 1)]
+        comparisons = [(i, i + 1) for i in range(n - 1)]
 
     compared = 0
-    for a, b in pairs:
-        print("[ReqDiff] comparing #%d vs #%d ..." % (a + 1, b + 1))
-        tool._compare(items[a], items[b])
+    for group in comparisons:
+        print("")
+        print("[ReqDiff] comparing %s ..." % " vs ".join("#" + items[i]["num"] for i in group))
+        tool._compare_multi([items[i] for i in group])
         compared += 1
+    print("")
     print("[ReqDiff] done - %d comparison(s), notes appended to: %s"
           % (compared, tool._output))
     return 0
@@ -536,7 +634,7 @@ if __name__ == "__main__":
 ██║  ██║██║██╔══╝  ██╔══╝      ██║     ██╔══██║
 ██████╔╝██║██║     ██║         ╚██████╗██║  ██║
 ╚═════╝ ╚═╝╚═╝     ╚═╝          ╚═════╝╚═╝  ╚═╝
-              diff checker tool
+            diff checker tool
 """)
     try:
         sys.exit(main())
