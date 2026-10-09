@@ -26,6 +26,10 @@ python Diff-checker.py export.xml --pairs 1,3
 python Diff-checker.py export.xml --pairs 1,2 4,7
 # Just list items (with their numbers) and exit:
 python Diff-checker.py export.xml --list
+# label option :
+python Diff-checker.py a.xml b.xml c.xml --labels "Admin,Guest,Service"
+# nway option :
+python Diff-checker.py export.xml --nway
 ```
 Options
 ```
